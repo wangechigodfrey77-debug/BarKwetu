@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Product,
   Category,
@@ -11,6 +11,7 @@ import {
   OrderStatus,
   ShippingAddress,
   RiderLocation,
+  ProductReview,
 } from '../types';
 import {
   INITIAL_CATEGORIES,
@@ -19,10 +20,12 @@ import {
   INITIAL_SETTINGS,
   INITIAL_USERS,
   INITIAL_SAMPLE_ORDER,
+  INITIAL_REVIEWS,
   WHISKY_IMAGE,
   GIN_IMAGE,
 } from '../data/seedData';
-import { generateOrderNumber } from '../utils/formatters';
+import { generateOrderNumber, formatKES } from '../utils/formatters';
+import { playNewOrderAlertSound } from '../utils/audioAlerts';
 import { resolveCoordinatesForAddress, STORE_HUB_LOCATION } from '../utils/kenyaLocations';
 import {
   seedFirestoreIfEmpty,
@@ -33,6 +36,7 @@ import {
   subscribeToSettings,
   subscribeToAuditLogs,
   subscribeToUsers,
+  subscribeToReviews,
   syncSaveProduct,
   syncDeleteProduct,
   syncAdjustStock,
@@ -47,6 +51,8 @@ import {
   syncSaveAuditLog,
   syncSaveUser,
   syncDeleteUser,
+  syncSaveReview,
+  syncDeleteReview,
 } from '../firebase/firestoreService';
 
 export type ActiveView = 
@@ -116,6 +122,11 @@ interface StoreContextType {
   // User & Auth
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  authRedirectIntent: string | null;
+  setAuthRedirectIntent: (intent: string | null) => void;
+  authModalInitialMode: 'signin' | 'signup';
+  setAuthModalInitialMode: (mode: 'signin' | 'signup') => void;
+  openAuthModal: (mode?: 'signin' | 'signup', intent?: string | null) => void;
   loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean }>;
   signupWithPassword: (data: { email: string; username: string; fullName: string; password: string; phone?: string }) => Promise<{ success: boolean; message?: string }>;
@@ -158,6 +169,28 @@ interface StoreContextType {
   auditLogs: AuditLog[];
   logAdminAction: (action: string, details: string) => void;
 
+  // Product Reviews & Ratings
+  reviews: ProductReview[];
+  getProductReviews: (productId: string) => ProductReview[];
+  getProductRatingStats: (productId: string) => {
+    average: number;
+    count: number;
+    breakdown: Record<number, number>;
+  };
+  submitProductReview: (reviewData: {
+    productId: string;
+    rating: number;
+    comment: string;
+    title?: string;
+  }) => Promise<{ success: boolean; message?: string }>;
+  deleteReview: (reviewId: string) => Promise<{ success: boolean }>;
+
+  // Sound & Notifications
+  soundAlertsEnabled: boolean;
+  setSoundAlertsEnabled: (enabled: boolean) => void;
+  toggleSoundAlerts: () => void;
+  playAlertSound: () => void;
+
   // Toasts
   toasts: Toast[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -174,6 +207,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authRedirectIntent, setAuthRedirectIntent] = useState<string | null>(null);
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<'signin' | 'signup'>('signin');
+
+  const openAuthModal = (mode: 'signin' | 'signup' = 'signin', intent: string | null = null) => {
+    setAuthModalInitialMode(mode);
+    setAuthRedirectIntent(intent);
+    setIsAuthModalOpen(true);
+  };
 
   // Age Verification
   const [ageVerified, setAgeVerified] = useState<boolean>(() => {
@@ -242,7 +283,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ];
   });
 
+  // Product Reviews State
+  const [reviews, setReviews] = useState<ProductReview[]>(() => {
+    const saved = localStorage.getItem('barkwetu_reviews');
+    return saved ? JSON.parse(saved) : INITIAL_REVIEWS;
+  });
+
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Sound Alerts for Real-time Orders
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('barkwetu_sound_alerts_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const soundAlertsRef = useRef(soundAlertsEnabled);
+  useEffect(() => {
+    soundAlertsRef.current = soundAlertsEnabled;
+    localStorage.setItem('barkwetu_sound_alerts_enabled', String(soundAlertsEnabled));
+  }, [soundAlertsEnabled]);
+
+  const toggleSoundAlerts = () => {
+    setSoundAlertsEnabled((prev) => {
+      const next = !prev;
+      if (next) {
+        playNewOrderAlertSound();
+        showToast('Order sound chime enabled 🔔', 'success');
+      } else {
+        showToast('Order sound chime muted 🔕', 'info');
+      }
+      return next;
+    });
+  };
+
+  const playAlertSound = () => {
+    playNewOrderAlertSound();
+  };
 
   // PalPluss STK Push Modal & State
   const [isPalPlussModalOpen, setIsPalPlussModalOpen] = useState(false);
@@ -273,9 +348,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    const unsubOrders = subscribeToOrders((liveOrders) => {
+    const unsubOrders = subscribeToOrders((liveOrders, newlyAdded) => {
       if (liveOrders && liveOrders.length > 0) {
         setOrders(liveOrders);
+      }
+
+      // Trigger Toast notification & sound alert whenever a new order is added to Firestore
+      if (newlyAdded && newlyAdded.length > 0) {
+        newlyAdded.forEach((newOrder) => {
+          const customer = newOrder.userName || 'Customer';
+          const destination = newOrder.shippingAddress?.town || 'Karatina';
+          const amountFormatted = formatKES(newOrder.total);
+
+          showToast(
+            `🔔 New Order #${newOrder.orderNumber}! ${amountFormatted} from ${customer} (${destination})`,
+            'success'
+          );
+
+          if (soundAlertsRef.current) {
+            playNewOrderAlertSound();
+          }
+        });
       }
     });
 
@@ -303,6 +396,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
+    const unsubReviews = subscribeToReviews((liveReviews) => {
+      if (liveReviews && liveReviews.length > 0) {
+        setReviews(liveReviews);
+      }
+    });
+
     return () => {
       unsubProducts();
       unsubCategories();
@@ -311,10 +410,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubSettings();
       unsubAudit();
       unsubUsers();
+      unsubReviews();
     };
   }, []);
 
   // Sync to LocalStorage (Fallback / offline cache)
+  useEffect(() => {
+    localStorage.setItem('barkwetu_reviews', JSON.stringify(reviews));
+  }, [reviews]);
+
   useEffect(() => {
     localStorage.setItem('barkwetu_products', JSON.stringify(products));
   }, [products]);
@@ -565,6 +669,148 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     logAdminAction('ADJUST_STOCK', `Adjusted stock for ${id} by ${delta}`);
   };
 
+  // Product Reviews & Ratings Management
+  const getProductReviews = (productId: string): ProductReview[] => {
+    return reviews.filter((r) => r.productId === productId);
+  };
+
+  const getProductRatingStats = (productId: string) => {
+    const productReviews = reviews.filter((r) => r.productId === productId);
+    if (productReviews.length === 0) {
+      const prod = products.find((p) => p.id === productId);
+      return {
+        average: prod?.rating || 5.0,
+        count: prod?.reviewsCount || 0,
+        breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number>,
+      };
+    }
+
+    const count = productReviews.length;
+    const sum = productReviews.reduce((acc, r) => acc + r.rating, 0);
+    const average = Number((sum / count).toFixed(1));
+
+    const breakdown: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    productReviews.forEach((r) => {
+      const star = Math.min(5, Math.max(1, Math.round(r.rating)));
+      breakdown[star] = (breakdown[star] || 0) + 1;
+    });
+
+    return {
+      average,
+      count,
+      breakdown,
+    };
+  };
+
+  const submitProductReview = async (reviewData: {
+    productId: string;
+    rating: number;
+    comment: string;
+    title?: string;
+  }): Promise<{ success: boolean; message?: string }> => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Please sign in or create an account to submit a review.', 'info');
+      return { success: false, message: 'Authentication required' };
+    }
+
+    if (reviewData.rating < 1 || reviewData.rating > 5) {
+      showToast('Please select a star rating between 1 and 5.', 'error');
+      return { success: false, message: 'Invalid rating' };
+    }
+
+    if (!reviewData.comment.trim()) {
+      showToast('Please enter your review comments.', 'error');
+      return { success: false, message: 'Comment required' };
+    }
+
+    // Check if customer previously ordered this product
+    const hasOrdered = orders.some(
+      (ord) =>
+        ord.userId === currentUser.id &&
+        (ord.status === 'paid' || ord.status === 'delivered' || ord.status === 'out_for_delivery') &&
+        ord.items.some((it) => it.productId === reviewData.productId)
+    );
+
+    // Check if user already reviewed this item
+    const existingIdx = reviews.findIndex(
+      (r) => r.productId === reviewData.productId && r.userId === currentUser.id
+    );
+
+    const newReview: ProductReview = {
+      id: existingIdx >= 0 ? reviews[existingIdx].id : `rev-${Date.now()}`,
+      productId: reviewData.productId,
+      userId: currentUser.id,
+      userName: currentUser.fullName || currentUser.username,
+      userEmail: currentUser.email,
+      rating: reviewData.rating,
+      title: reviewData.title?.trim() || undefined,
+      comment: reviewData.comment.trim(),
+      verifiedPurchase: hasOrdered || currentUser.role === 'admin' || currentUser.role === 'superadmin',
+      createdAt: new Date().toISOString(),
+    };
+
+    let updatedReviews: ProductReview[];
+    if (existingIdx >= 0) {
+      updatedReviews = [...reviews];
+      updatedReviews[existingIdx] = newReview;
+    } else {
+      updatedReviews = [newReview, ...reviews];
+    }
+    setReviews(updatedReviews);
+
+    // Persist to Firestore
+    try {
+      await syncSaveReview(newReview);
+    } catch (err) {
+      console.warn('Review save sync error:', err);
+    }
+
+    // Recalculate target product rating and review count
+    const targetProductReviews = updatedReviews.filter((r) => r.productId === reviewData.productId);
+    const newCount = targetProductReviews.length;
+    const newAvg = Number((targetProductReviews.reduce((acc, r) => acc + r.rating, 0) / newCount).toFixed(1));
+
+    const targetProduct = products.find((p) => p.id === reviewData.productId);
+    if (targetProduct) {
+      const updatedProduct: Product = {
+        ...targetProduct,
+        rating: newAvg,
+        reviewsCount: newCount,
+      };
+      setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+      syncSaveProduct(updatedProduct).catch((e) => console.warn('Product sync after review error:', e));
+    }
+
+    showToast(`⭐ Review submitted for ${targetProduct?.name || 'product'}!`, 'success');
+    return { success: true, message: 'Review saved.' };
+  };
+
+  const deleteReview = async (reviewId: string) => {
+    const target = reviews.find((r) => r.id === reviewId);
+    const updatedReviews = reviews.filter((r) => r.id !== reviewId);
+    setReviews(updatedReviews);
+    try {
+      await syncDeleteReview(reviewId);
+      if (target) {
+        const pReviews = updatedReviews.filter((r) => r.productId === target.productId);
+        const newCount = pReviews.length;
+        const newAvg = newCount > 0 ? Number((pReviews.reduce((acc, r) => acc + r.rating, 0) / newCount).toFixed(1)) : 5.0;
+        const targetProduct = products.find((p) => p.id === target.productId);
+        if (targetProduct) {
+          const updatedProd = { ...targetProduct, rating: newAvg, reviewsCount: newCount };
+          setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
+          syncSaveProduct(updatedProd).catch((e) => console.warn('Product sync after review delete error:', e));
+        }
+      }
+      showToast('Review removed.', 'info');
+      return { success: true };
+    } catch (e) {
+      console.error('Delete review error:', e);
+      return { success: false };
+    }
+  };
+
   // Category CRUD
   const addCategory = (categoryData: Omit<Category, 'id'>) => {
     const newCat: Category = {
@@ -625,7 +871,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else if (matched.role === 'admin' || matched.role === 'superadmin') {
         showToast(`Welcome back, ${matched.fullName}!`, 'success');
       } else {
-        showToast(`Welcome back, ${matched.fullName}!`, 'success');
+        if (authRedirectIntent === 'checkout') {
+          setActiveView('checkout');
+          setAuthRedirectIntent(null);
+          showToast(`Welcome back, ${matched.fullName}! Proceeding directly to checkout.`, 'success');
+        } else {
+          showToast(`Welcome back, ${matched.fullName}!`, 'success');
+        }
       }
       return { success: true };
     }
@@ -687,8 +939,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createdAt: new Date().toISOString(),
       };
       setCurrentUser(customer);
+      setAdminUsers((prev) => [...prev, customer]);
+      syncSaveUser(customer).catch((e) => console.warn('Customer user sync:', e));
       setIsAuthModalOpen(false);
-      showToast(`Welcome to BarKwetu, ${customer.fullName}!`, 'success');
+      if (authRedirectIntent === 'checkout') {
+        setActiveView('checkout');
+        setAuthRedirectIntent(null);
+        showToast(`Welcome to BarKwetu, ${customer.fullName}! Proceeding to checkout.`, 'success');
+      } else {
+        showToast(`Welcome to BarKwetu, ${customer.fullName}!`, 'success');
+      }
       return { success: true };
     }
 
@@ -707,8 +967,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
     };
     setCurrentUser(googleUser);
+    setAdminUsers((prev) => {
+      if (!prev.some((u) => u.id === googleUser.id)) return [...prev, googleUser];
+      return prev;
+    });
+    syncSaveUser(googleUser).catch((e) => console.warn('Google user sync:', e));
     setIsAuthModalOpen(false);
-    showToast('Signed in securely with Google Account.', 'success');
+    if (authRedirectIntent === 'checkout') {
+      setActiveView('checkout');
+      setAuthRedirectIntent(null);
+      showToast('Signed in with Google! Continuing directly to checkout.', 'success');
+    } else {
+      showToast('Signed in securely with Google Account.', 'success');
+    }
     return { success: true };
   };
 
@@ -721,17 +992,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }) => {
     const newUser: User = {
       id: `usr-${Date.now()}`,
-      email: data.email,
-      username: data.username,
-      fullName: data.fullName,
+      email: data.email.trim(),
+      username: data.username.trim(),
+      fullName: data.fullName.trim(),
       password: data.password,
-      phone: data.phone,
+      phone: data.phone?.trim(),
       role: 'customer',
       createdAt: new Date().toISOString(),
     };
     setCurrentUser(newUser);
+    setAdminUsers((prev) => [...prev, newUser]);
+    syncSaveUser(newUser).catch((e) => console.warn('New customer sync:', e));
     setIsAuthModalOpen(false);
-    showToast(`Account created! Welcome, ${newUser.fullName}.`, 'success');
+    if (authRedirectIntent === 'checkout') {
+      setActiveView('checkout');
+      setAuthRedirectIntent(null);
+      showToast(`Account created! Welcome, ${newUser.fullName}. Proceeding directly to checkout.`, 'success');
+    } else {
+      showToast(`Account created! Welcome, ${newUser.fullName}.`, 'success');
+    }
     return { success: true };
   };
 
@@ -1289,6 +1568,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         currentUser,
         setCurrentUser,
+        authRedirectIntent,
+        setAuthRedirectIntent,
+        authModalInitialMode,
+        setAuthModalInitialMode,
+        openAuthModal,
         loginWithPassword,
         loginWithGoogle,
         signupWithPassword,
@@ -1320,6 +1604,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateSettings,
         auditLogs,
         logAdminAction,
+
+        reviews,
+        getProductReviews,
+        getProductRatingStats,
+        submitProductReview,
+        deleteReview,
+
+        soundAlertsEnabled,
+        setSoundAlertsEnabled,
+        toggleSoundAlerts,
+        playAlertSound,
 
         toasts,
         showToast,

@@ -2,15 +2,19 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatKES } from '../utils/formatters';
-import { ShoppingBag, Eye, Wine } from 'lucide-react';
+import { ShoppingBag, Eye, Wine, Star } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { addToCart, setSelectedProductId } = useStore();
+  const { addToCart, setSelectedProductId, getProductRatingStats } = useStore();
   const [imageError, setImageError] = useState(false);
+
+  const stats = getProductRatingStats(product.id);
+  const ratingVal = stats.count > 0 ? stats.average : (product.rating || 5.0);
+  const reviewsCountVal = stats.count > 0 ? stats.count : (product.reviewsCount || 0);
 
   const isOutOfStock = product.stock <= 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
@@ -98,10 +102,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Product Title */}
           <h3
             onClick={() => setSelectedProductId(product.id)}
-            className="text-sm sm:text-[15px] font-semibold text-zinc-100 line-clamp-2 hover:text-[#d4af37] transition-colors cursor-pointer leading-snug mb-2"
+            className="text-sm sm:text-[15px] font-semibold text-zinc-100 line-clamp-2 hover:text-[#d4af37] transition-colors cursor-pointer leading-snug mb-1.5"
           >
             {product.name}
           </h3>
+
+          {/* Rating Stars & Review Count */}
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-2">
+            <div className="flex items-center text-amber-400">
+              <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
+              <span className="ml-1 font-semibold text-zinc-200 tabular-nums text-xs">
+                {ratingVal.toFixed(1)}
+              </span>
+            </div>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
+            <span className="text-[11px] text-zinc-500 tabular-nums">
+              ({reviewsCountVal} {reviewsCountVal === 1 ? 'review' : 'reviews'})
+            </span>
+          </div>
 
           {/* Stock Status text */}
           <div className="text-[11px] mb-3">

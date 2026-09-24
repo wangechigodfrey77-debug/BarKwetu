@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
-import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike } from 'lucide-react';
+import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike, ShoppingBag, Sparkles } from 'lucide-react';
+import { formatKES } from '../utils/formatters';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -12,6 +13,11 @@ export const AuthModal: React.FC = () => {
     signupWithPassword,
     logout,
     setActiveView,
+    authRedirectIntent,
+    setAuthRedirectIntent,
+    authModalInitialMode,
+    cart,
+    cartTotal,
   } = useStore();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -28,7 +34,19 @@ export const AuthModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Sync mode whenever modal opens with a requested initial mode
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      if (authModalInitialMode) {
+        setMode(authModalInitialMode);
+      }
+      setErrorMsg('');
+    }
+  }, [isAuthModalOpen, authModalInitialMode]);
+
   if (!isAuthModalOpen) return null;
+
+  const isCheckoutIntent = authRedirectIntent === 'checkout';
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,13 +102,19 @@ export const AuthModal: React.FC = () => {
     setActiveView('rider');
   };
 
+  const handleClose = () => {
+    setIsAuthModalOpen(false);
+    // If they cancel out of checkout modal, retain or clear intent as needed
+    setAuthRedirectIntent(null);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-md bg-[#121318] border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 overflow-hidden">
         {/* Close Button */}
         <button
-          onClick={() => setIsAuthModalOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer"
+          onClick={handleClose}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer z-10"
         >
           <X className="w-5 h-5" />
         </button>
@@ -110,15 +134,27 @@ export const AuthModal: React.FC = () => {
             </div>
 
             <div className="space-y-3">
+              {cart.length > 0 && (
+                <button
+                  onClick={() => {
+                    setIsAuthModalOpen(false);
+                    setActiveView('checkout');
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#d4af37] hover:brightness-110 text-black font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#d4af37]/20"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Continue Checkout ({formatKES(cartTotal)})</span>
+                </button>
+              )}
               {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
                 <button
                   onClick={() => {
                     setIsAuthModalOpen(false);
                     setActiveView('admin');
                   }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#d4af37] text-black font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Shield className="w-4 h-4" />
+                  <Shield className="w-4 h-4 text-[#d4af37]" />
                   <span>Open Admin Operations Panel</span>
                 </button>
               )}
@@ -141,15 +177,38 @@ export const AuthModal: React.FC = () => {
           </div>
         ) : (
           <div>
+            {/* Checkout Prompt Notice Banner */}
+            {isCheckoutIntent && (
+              <div className="mb-5 p-3.5 rounded-xl bg-[#1a1708] border border-[#d4af37]/40 flex items-start gap-3 shadow-inner">
+                <div className="w-8 h-8 rounded-lg bg-[#d4af37]/20 flex items-center justify-center shrink-0 text-[#d4af37]">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-xs font-bold text-[#d4af37] flex items-center gap-1.5">
+                    <span>Account Required for Checkout</span>
+                  </h4>
+                  <p className="text-[11px] text-zinc-300 mt-0.5 leading-snug">
+                    Please <strong className="text-white">sign in</strong> or <strong className="text-white">create an account</strong> to proceed to checkout with M-Pesa and live dispatch tracking.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Modal Header */}
-            <div className="text-center mb-6">
+            <div className="text-center mb-5">
               <h3 className="text-2xl font-serif font-bold text-white tracking-tight">
-                {mode === 'signin' ? 'Welcome to BarKwetu' : 'Create Customer Account'}
+                {mode === 'signin'
+                  ? isCheckoutIntent
+                    ? 'Sign In to Checkout'
+                    : 'Welcome Back to BarKwetu'
+                  : isCheckoutIntent
+                  ? 'Create Account to Checkout'
+                  : 'Create Customer Account'}
               </h3>
               <p className="text-xs text-zinc-400 mt-1">
                 {mode === 'signin'
-                  ? 'Sign in to access rapid checkout & order tracking'
-                  : 'Join for priority Nairobi delivery and exclusive reserve allocations'}
+                  ? 'Sign in to access rapid checkout, order history & GPS delivery'
+                  : 'Join in 30 seconds for priority Kenya delivery and reserve allocations'}
               </p>
             </div>
 
@@ -182,7 +241,7 @@ export const AuthModal: React.FC = () => {
             {/* Divider */}
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-[1px] bg-zinc-800" />
-              <span className="text-[11px] text-zinc-500 uppercase">Or continue with</span>
+              <span className="text-[11px] text-zinc-500 uppercase">Or continue with email</span>
               <div className="flex-1 h-[1px] bg-zinc-800" />
             </div>
 
@@ -190,7 +249,7 @@ export const AuthModal: React.FC = () => {
             <div className="flex p-1 bg-[#0b0c10] border border-zinc-800 rounded-xl mb-4">
               <button
                 onClick={() => { setMode('signin'); setErrorMsg(''); }}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   mode === 'signin' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -198,11 +257,11 @@ export const AuthModal: React.FC = () => {
               </button>
               <button
                 onClick={() => { setMode('signup'); setErrorMsg(''); }}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   mode === 'signup' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                Sign Up
+                Create Account
               </button>
             </div>
 
@@ -226,7 +285,7 @@ export const AuthModal: React.FC = () => {
                       required
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="e.g. admin or your email"
+                      placeholder="e.g. jkamau or your email"
                       className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
                     />
                   </div>
@@ -254,12 +313,30 @@ export const AuthModal: React.FC = () => {
                   disabled={isLoading}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-xs hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#d4af37]/20"
                 >
-                  <span>{isLoading ? 'Signing In...' : 'Sign In'}</span>
+                  <span>
+                    {isLoading
+                      ? 'Signing In...'
+                      : isCheckoutIntent
+                      ? 'Sign In & Sail to Checkout'
+                      : 'Sign In'}
+                  </span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
 
+                {/* Switch to SignUp */}
+                <div className="text-center pt-2">
+                  <span className="text-xs text-zinc-400">New customer? </span>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('signup'); setErrorMsg(''); }}
+                    className="text-xs text-[#d4af37] hover:underline font-semibold cursor-pointer"
+                  >
+                    Create an account here
+                  </button>
+                </div>
+
                 {/* Quick Account Helper Pills */}
-                <div className="pt-2 space-y-1.5">
+                <div className="pt-2 space-y-1.5 border-t border-zinc-800/60">
                   <button
                     type="button"
                     onClick={handleQuickRiderLogin}
@@ -283,7 +360,7 @@ export const AuthModal: React.FC = () => {
               <form onSubmit={handleSignUp} className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Full Name
+                    Full Name <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -298,7 +375,7 @@ export const AuthModal: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-zinc-300 mb-1">
-                      Email
+                      Email Address <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="email"
@@ -311,7 +388,7 @@ export const AuthModal: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-zinc-300 mb-1">
-                      Username
+                      Username <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -326,29 +403,35 @@ export const AuthModal: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    M-Pesa Phone Number
+                    Kenyan Phone / M-Pesa Number
                   </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0712 345 678"
-                    className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
-                  />
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="0712 345 678"
+                      className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Password (min 6 characters)
+                    Password (min 6 characters) <span className="text-rose-400">*</span>
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
+                    <input
+                      type="password"
+                      required
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#0b0c10] border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
                 </div>
 
                 <button
@@ -356,9 +439,27 @@ export const AuthModal: React.FC = () => {
                   disabled={isLoading}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-xs hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#d4af37]/20 mt-2"
                 >
-                  <span>{isLoading ? 'Creating Account...' : 'Complete Sign Up'}</span>
+                  <span>
+                    {isLoading
+                      ? 'Creating Account...'
+                      : isCheckoutIntent
+                      ? 'Create Account & Continue to Checkout'
+                      : 'Complete Sign Up'}
+                  </span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
+
+                {/* Switch to SignIn */}
+                <div className="text-center pt-2">
+                  <span className="text-xs text-zinc-400">Already registered? </span>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('signin'); setErrorMsg(''); }}
+                    className="text-xs text-[#d4af37] hover:underline font-semibold cursor-pointer"
+                  >
+                    Sign in here
+                  </button>
+                </div>
               </form>
             )}
           </div>

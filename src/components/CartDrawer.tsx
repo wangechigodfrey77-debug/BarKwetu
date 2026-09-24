@@ -20,7 +20,7 @@ export const CartDrawer: React.FC = () => {
     removePromoCode,
     setActiveView,
     currentUser,
-    setIsAuthModalOpen,
+    openAuthModal,
   } = useStore();
 
   const [promoInput, setPromoInput] = useState('');
@@ -43,8 +43,10 @@ export const CartDrawer: React.FC = () => {
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      // Prompt user to sign in or create an account with checkout intent
+      openAuthModal('signin', 'checkout');
     } else {
+      // User is already authenticated: sail right through to the checkout page
       setActiveView('checkout');
     }
   };

@@ -30,6 +30,9 @@ import {
   Sparkles,
   Star,
   Link2,
+  Volume2,
+  VolumeX,
+  Bell,
 } from 'lucide-react';
 
 const PRESET_SPIRIT_IMAGES = [
@@ -50,6 +53,7 @@ type AdminTab =
   | 'categories'
   | 'orders'
   | 'fleet'
+  | 'reviews'
   | 'discounts'
   | 'admins'
   | 'settings'
@@ -85,6 +89,11 @@ export const AdminDashboardView: React.FC = () => {
     updateSettings,
     auditLogs,
     showToast,
+    reviews,
+    deleteReview,
+    soundAlertsEnabled,
+    toggleSoundAlerts,
+    playAlertSound,
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -666,6 +675,21 @@ export const AdminDashboardView: React.FC = () => {
               <span className="tabular-nums opacity-70 font-mono">{promoCodes.length}</span>
             </button>
 
+            <button
+              onClick={() => setActiveTab('reviews')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'reviews'
+                  ? 'bg-[#d4af37] text-black font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Star className="w-4 h-4 text-amber-400" />
+                <span>Product Reviews</span>
+              </div>
+              <span className="tabular-nums opacity-70 font-mono">{reviews.length}</span>
+            </button>
+
             {currentUser.role === 'superadmin' && (
               <button
                 onClick={() => setActiveTab('admins')}
@@ -709,8 +733,48 @@ export const AdminDashboardView: React.FC = () => {
           </nav>
         </div>
 
-        {/* Footer Actions */}
-        <div className="pt-6 border-t border-zinc-800 space-y-2 text-xs">
+        {/* Real-time Order Listener & Sound Controls */}
+        <div className="pt-4 border-t border-zinc-800 space-y-2 text-xs">
+          <div className="bg-[#121318] border border-zinc-800/80 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Live Orders Sync</span>
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                ACTIVE
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
+              <button
+                type="button"
+                onClick={toggleSoundAlerts}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  soundAlertsEnabled
+                    ? 'bg-[#d4af37]/15 text-[#d4af37] border border-[#d4af37]/30 hover:bg-[#d4af37]/25'
+                    : 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 hover:text-white'
+                }`}
+                title={soundAlertsEnabled ? 'Click to Mute Sound Alerts' : 'Click to Enable Sound Alerts'}
+              >
+                {soundAlertsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span>{soundAlertsEnabled ? 'Sound ON' : 'Muted'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playAlertSound();
+                  showToast('Test chime played 🔔', 'info');
+                }}
+                className="ml-1.5 px-2 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-medium border border-zinc-700 cursor-pointer"
+                title="Test Audio Chime"
+              >
+                <Bell className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
           <button
             onClick={() => setActiveView('store')}
             className="w-full py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
@@ -732,13 +796,51 @@ export const AdminDashboardView: React.FC = () => {
         {/* ================= TAB: OVERVIEW ================= */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white">
-                Operations & Sales Overview
-              </h1>
-              <p className="text-xs text-zinc-400 mt-1">
-                Real-time snapshot of revenue, active orders, and Kenyan fulfillment.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white">
+                  Operations & Sales Overview
+                </h1>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Real-time snapshot of revenue, active orders, and Kenyan fulfillment.
+                </p>
+              </div>
+
+              {/* Real-time Status Pill & Chime Controls */}
+              <div className="flex items-center gap-2 bg-[#121318] border border-zinc-800 rounded-xl px-3 py-2 shrink-0">
+                <div className="flex items-center gap-2 pr-3 border-r border-zinc-800">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-semibold text-zinc-300 font-mono">Firestore Orders Live</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={toggleSoundAlerts}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    soundAlertsEnabled
+                      ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                  }`}
+                >
+                  {soundAlertsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                  <span>{soundAlertsEnabled ? 'Alerts ON' : 'Muted'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playAlertSound();
+                    showToast('Testing Order Alert Chime 🔔', 'info');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-[#d4af37] text-xs font-medium border border-zinc-700 transition-colors cursor-pointer"
+                  title="Test notification chime sound"
+                >
+                  Test Chime
+                </button>
+              </div>
             </div>
 
             {/* Metric Cards Grid */}
@@ -1657,6 +1759,133 @@ export const AdminDashboardView: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB: PRODUCT REVIEWS ================= */}
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white flex items-center gap-2.5">
+                  <Star className="w-7 h-7 text-amber-400 fill-amber-400" />
+                  <span>Customer Product Reviews</span>
+                </h1>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Moderate customer feedback, review tasting notes, and inspect verified ratings.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="bg-[#121318] border border-zinc-800 rounded-xl px-4 py-2 text-right">
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Total Reviews</span>
+                  <span className="text-lg font-bold text-white tabular-nums">{reviews.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reviews Moderation Table */}
+            <div className="bg-[#121318] border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+              {reviews.length === 0 ? (
+                <div className="text-center py-12 p-6 text-zinc-500">
+                  <Star className="w-8 h-8 mx-auto mb-2 opacity-40 text-amber-400" />
+                  <p className="text-sm font-medium text-zinc-300">No customer reviews yet</p>
+                  <p className="text-xs">When users submit ratings on product pages, they appear here.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0e0f14] border-b border-zinc-800 text-zinc-500 uppercase text-[10px]">
+                      <tr>
+                        <th className="p-4">Spirit Product</th>
+                        <th className="p-4">Reviewer</th>
+                        <th className="p-4">Rating</th>
+                        <th className="p-4">Review Content</th>
+                        <th className="p-4">Date</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60">
+                      {reviews.map((rev) => {
+                        const prod = products.find((p) => p.id === rev.productId);
+                        return (
+                          <tr key={rev.id} className="hover:bg-[#161822]">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {prod?.images?.[0] ? (
+                                  <img
+                                    src={prod.images[0]}
+                                    alt={prod.name}
+                                    className="w-9 h-9 rounded bg-[#0b0c10] object-contain p-1 border border-zinc-800 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 rounded bg-[#0b0c10] flex items-center justify-center text-[#d4af37] border border-zinc-800 shrink-0">
+                                    ★
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-zinc-100 truncate max-w-[200px]">
+                                    {prod?.name || rev.productId}
+                                  </p>
+                                  <p className="text-[10px] text-zinc-500">{prod?.brand || 'Premium Spirit'}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="space-y-0.5">
+                                <p className="font-medium text-white">{rev.userName}</p>
+                                <p className="text-[10px] text-zinc-500">{rev.userEmail}</p>
+                                {rev.verifiedPurchase && (
+                                  <span className="inline-block text-[9px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-1.5 rounded font-medium">
+                                    ✓ Verified Buyer
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-1 text-amber-400">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <Star
+                                    key={s}
+                                    className={`w-3 h-3 ${
+                                      s <= rev.rating
+                                        ? 'fill-amber-400 stroke-amber-400'
+                                        : 'stroke-zinc-600 text-transparent'
+                                    }`}
+                                  />
+                                ))}
+                                <span className="ml-1 text-zinc-300 font-bold tabular-nums">
+                                  {rev.rating}.0
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-4 max-w-sm">
+                              {rev.title && (
+                                <p className="font-semibold text-zinc-200 mb-0.5">{rev.title}</p>
+                              )}
+                              <p className="text-zinc-400 line-clamp-2">{rev.comment}</p>
+                            </td>
+                            <td className="p-4 font-mono text-zinc-500 text-[11px] whitespace-nowrap">
+                              {formatDateTime(rev.createdAt)}
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => deleteReview(rev.id)}
+                                className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                                title="Delete / Moderate Review"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

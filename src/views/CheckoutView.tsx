@@ -28,7 +28,8 @@ export const CheckoutView: React.FC = () => {
     setActiveView,
     createPendingOrder,
     initiatePalPlussPayment,
-    setIsAuthModalOpen,
+    openAuthModal,
+    loginWithGoogle,
   } = useStore();
 
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
@@ -41,6 +42,14 @@ export const CheckoutView: React.FC = () => {
   const [ageConfirmChecked, setAgeConfirmChecked] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Auto sync user fields if current user updates
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.fullName) setFullName(currentUser.fullName);
+      if (currentUser.phone) setPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   // Towns for selected county
   const selectedCountyObj = KENYA_COUNTIES.find((c) => c.name === county);
@@ -67,6 +76,102 @@ export const CheckoutView: React.FC = () => {
           >
             Explore Reserve Spirits
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is not logged in, show a dedicated account requirement prompt
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#090a0d] py-12 px-4 sm:px-6">
+        <div className="max-w-lg mx-auto">
+          <button
+            onClick={() => setActiveView('store')}
+            className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white mb-6 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Store</span>
+          </button>
+
+          <div className="bg-[#121318] border border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#d4af37]/15 border border-[#d4af37]/30 flex items-center justify-center mx-auto mb-4 text-[#d4af37]">
+              <Lock className="w-7 h-7" />
+            </div>
+
+            <div className="text-center mb-6">
+              <h2 className="font-serif text-2xl font-bold text-white mb-1.5">
+                Sign In or Register to Checkout
+              </h2>
+              <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                BarKwetu requires an account to secure M-Pesa automated callbacks, real-time rider tracking, and age compliance.
+              </p>
+            </div>
+
+            {/* Cart Preview Badge */}
+            <div className="bg-[#0b0c10] border border-zinc-800/80 rounded-xl p-4 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="w-5 h-5 text-[#d4af37]" />
+                <div>
+                  <p className="text-xs font-semibold text-white">Basket Total</p>
+                  <p className="text-[11px] text-zinc-400">{cart.reduce((s, i) => s + i.quantity, 0)} spirits items</p>
+                </div>
+              </div>
+              <span className="text-base font-bold text-[#d4af37] tabular-nums">
+                {formatKES(cartTotal)}
+              </span>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="space-y-3">
+              <button
+                onClick={() => openAuthModal('signin', 'checkout')}
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-bold text-xs hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#d4af37]/20 cursor-pointer"
+              >
+                <UserIcon className="w-4 h-4 stroke-[2.5]" />
+                <span>Sign In to Existing Account</span>
+              </button>
+
+              <button
+                onClick={() => openAuthModal('signup', 'checkout')}
+                className="w-full py-3.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 border border-zinc-700 cursor-pointer"
+              >
+                <span>Create New Customer Account</span>
+              </button>
+
+              <div className="relative py-2 flex items-center justify-center">
+                <div className="w-full border-t border-zinc-800 absolute" />
+                <span className="bg-[#121318] px-3 text-[11px] text-zinc-500 uppercase relative">
+                  Or instant
+                </span>
+              </div>
+
+              <button
+                onClick={loginWithGoogle}
+                className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2.5 transition-all shadow-md cursor-pointer"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#EA4335"
+                    d="M12 5c1.7 0 3 .6 4 1.5l3-3C17.2 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.4l3.7 2.9C6.5 7.4 9 5 12 5z"
+                  />
+                  <path
+                    fill="#4285F4"
+                    d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5.1 3.7-8.8z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.6 14.7c-.2-.7-.4-1.5-.4-2.7s.1-2 .4-2.7L1.9 6.4C.7 8.8 0 10.8 0 12s.7 3.2 1.9 5.6l3.7-2.9z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.3L1.9 16c1.8 3.8 5.6 7 10.1 7z"
+                  />
+                </svg>
+                <span>Continue with Google</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

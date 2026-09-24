@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Liquor and spirit items available in store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "brand": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "abv": { "type": "string" },
+        "volume": { "type": "string" },
+        "description": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" }
+      },
+      "required": ["id", "name", "brand", "price", "stock"]
+    },
+    "ProductReview": {
+      "title": "ProductReview",
+      "description": "Customer ratings and comments for products",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "rating": { "type": "number" },
+        "title": { "type": "string" },
+        "comment": { "type": "string" },
+        "verifiedPurchase": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "productId", "userId", "userName", "rating", "comment", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer liquor delivery order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "userId": { "type": "string" },
+        "total": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "orderNumber", "total", "status"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Catalog of spirits and liquor items"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/ProductReview" },
+      "description": "Customer product reviews and ratings"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders and fulfillment details"
+    }
+  }
+}

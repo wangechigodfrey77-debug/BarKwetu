@@ -1,4 +1,4 @@
-import { Category, Product, PromoCode, SiteSettings, User, Order } from '../types';
+import { Category, Product, PromoCode, SiteSettings, User, Order, ProductReview } from '../types';
 
 export const HERO_IMAGE = '/src/assets/images/hero_barkwetu_whisky_1790229519485.jpg';
 export const WHISKY_IMAGE = '/src/assets/images/category_single_malt_1790229532902.jpg';
@@ -686,5 +686,69 @@ export const INITIAL_SAMPLE_ORDER: Order = {
   createdAt: new Date(Date.now() - 7200000).toISOString(),
   updatedAt: new Date(Date.now() - 1200000).toISOString(),
 };
+
+export const INITIAL_REVIEWS: ProductReview[] = [
+  {
+    id: 'rev-1',
+    productId: 'prod-macallan-12',
+    userId: 'user-customer-1',
+    userName: 'Karanja M.',
+    userEmail: 'karanja@gmail.com',
+    rating: 5,
+    title: 'Superb Single Malt',
+    comment: 'Rich dried fruit notes and smooth sherry oak finish. Delivered chilled to Karatina in under 30 minutes!',
+    verifiedPurchase: true,
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: 'rev-2',
+    productId: 'prod-macallan-12',
+    userId: 'user-customer-2',
+    userName: 'Wambui N.',
+    userEmail: 'wambui@yahoo.com',
+    rating: 5,
+    title: 'Authentic Scotch Reserve',
+    comment: '100% duty-paid authentic bottle. The packaging had tamper-proof seals intact.',
+    verifiedPurchase: true,
+    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+  },
+  {
+    id: 'rev-3',
+    productId: 'prod-hendricks-gin',
+    userId: 'user-customer-3',
+    userName: 'David O.',
+    userEmail: 'david.o@gmail.com',
+    rating: 5,
+    title: 'Crisp cucumber and rose perfection',
+    comment: 'Best gin for a refreshing weekend cocktail. Excellent prompt delivery in Karatina town.',
+    verifiedPurchase: true,
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: 'rev-4',
+    productId: 'prod-don-julio-repo',
+    userId: 'user-customer-4',
+    userName: 'Mercy K.',
+    userEmail: 'mercy@gmail.com',
+    rating: 5,
+    title: 'Top Tier Tequila',
+    comment: 'Silky smooth with agave and vanilla hints. No harsh burn at all. Will reorder!',
+    verifiedPurchase: true,
+    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+  },
+  {
+    id: 'rev-5',
+    productId: 'prod-jw-black',
+    userId: 'user-customer-5',
+    userName: 'George N.',
+    userEmail: 'george@gmail.com',
+    rating: 4,
+    title: 'Classic Reliable Blend',
+    comment: 'Consistent smoky profile and great value. Payment with M-Pesa STK push was instantaneous.',
+    verifiedPurchase: true,
+    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
+  },
+];
+
 
 

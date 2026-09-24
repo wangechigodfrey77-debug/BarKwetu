@@ -48,5 +48,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if true;
     }
+
+    // Product Reviews: public read, write for authenticated/customer reviews
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

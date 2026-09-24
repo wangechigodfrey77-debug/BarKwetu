@@ -21,6 +21,7 @@ import {
   AuditLog,
   User,
   OrderStatus,
+  ProductReview,
 } from '../types';
 import {
   INITIAL_PRODUCTS,
@@ -29,6 +30,7 @@ import {
   INITIAL_SETTINGS,
   INITIAL_USERS,
   INITIAL_SAMPLE_ORDER,
+  INITIAL_REVIEWS,
 } from '../data/seedData';
 
 // Collection References
@@ -39,6 +41,7 @@ const PROMOS_COL = 'promoCodes';
 const SETTINGS_COL = 'settings';
 const AUDIT_COL = 'auditLogs';
 const USERS_COL = 'users';
+const REVIEWS_COL = 'reviews';
 
 /**
  * Deep recursive sanitizer that removes undefined values so Firestore does not reject writes
@@ -110,12 +113,34 @@ export const seedFirestoreIfEmpty = async () => {
         await setDoc(doc(db, USERS_COL, u.id), sanitizeForFirestore(u));
       }
     }
+
+    // 7. Check reviews
+    const reviewSnapshot = await getDocs(collection(db, REVIEWS_COL));
+    if (reviewSnapshot.empty) {
+      console.log('🌱 Seeding Firestore with product reviews...');
+      for (const r of INITIAL_REVIEWS) {
+        await setDoc(doc(db, REVIEWS_COL, r.id), sanitizeForFirestore(r));
+      }
+    }
   } catch (error) {
     console.warn('Firestore seeding notice:', error);
   }
 };
 
 // ================= Real-time Listeners =================
+
+export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void) => {
+  const q = collection(db, REVIEWS_COL);
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => d.data() as ProductReview);
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(items);
+    },
+    (err) => console.error('Error listening to reviews:', err)
+  );
+};
 
 export const subscribeToProducts = (callback: (products: Product[]) => void) => {
   const q = collection(db, PRODUCTS_COL);
@@ -142,14 +167,31 @@ export const subscribeToCategories = (callback: (categories: Category[]) => void
   );
 };
 
-export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
+export const subscribeToOrders = (
+  callback: (orders: Order[], newOrders: Order[]) => void
+) => {
   const q = collection(db, ORDERS_COL);
+  let isInitialLoad = true;
+
   return onSnapshot(
     q,
     (snapshot) => {
       const items = snapshot.docs.map((d) => d.data() as Order);
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      callback(items);
+
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        callback(items, []);
+      } else {
+        const newlyAddedOrders: Order[] = [];
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data() as Order;
+            newlyAddedOrders.push(data);
+          }
+        });
+        callback(items, newlyAddedOrders);
+      }
     },
     (err) => console.error('Error listening to orders:', err)
   );
@@ -293,4 +335,14 @@ export const syncSaveUser = async (user: User) => {
 
 export const syncDeleteUser = async (userId: string) => {
   await deleteDoc(doc(db, USERS_COL, userId));
+};
+
+// Reviews
+export const syncSaveReview = async (review: ProductReview) => {
+  const clean = sanitizeForFirestore(review);
+  await setDoc(doc(db, REVIEWS_COL, review.id), clean);
+};
+
+export const syncDeleteReview = async (reviewId: string) => {
+  await deleteDoc(doc(db, REVIEWS_COL, reviewId));
 };
