@@ -176,6 +176,7 @@ export interface User {
   email: string;
   username: string;
   fullName: string;
+  password?: string;
   phone?: string;
   role: 'customer' | 'admin' | 'superadmin' | 'rider';
   bikeRegistration?: string;

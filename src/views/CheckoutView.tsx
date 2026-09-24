@@ -24,6 +24,7 @@ export const CheckoutView: React.FC = () => {
     cartTotal,
     appliedPromo,
     currentUser,
+    setCurrentUser,
     setActiveView,
     createPendingOrder,
     initiatePalPlussPayment,
@@ -75,9 +76,23 @@ export const CheckoutView: React.FC = () => {
     e.preventDefault();
     setFormError('');
 
-    if (!currentUser) {
-      setIsAuthModalOpen(true);
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 9) {
+      setFormError('Please provide a valid 10-digit Kenyan phone number for M-Pesa.');
       return;
+    }
+
+    if (!currentUser) {
+      const newCustomer = {
+        id: `user-cust-${Date.now()}`,
+        fullName: fullName.trim(),
+        username: fullName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_') || 'customer',
+        email: `${cleanPhone}@barkwetu.co.ke`,
+        phone: phone.trim(),
+        role: 'customer' as const,
+        createdAt: new Date().toISOString(),
+      };
+      setCurrentUser(newCustomer);
     }
 
     if (!fullName.trim() || !phone.trim() || !exactLocation.trim()) {
@@ -87,12 +102,6 @@ export const CheckoutView: React.FC = () => {
 
     if (!ageConfirmChecked) {
       setFormError('You must confirm you are 18 years or older to receive alcoholic beverages.');
-      return;
-    }
-
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 9) {
-      setFormError('Please provide a valid 10-digit Kenyan phone number for M-Pesa.');
       return;
     }
 

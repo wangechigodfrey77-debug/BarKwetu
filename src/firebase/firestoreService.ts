@@ -40,6 +40,24 @@ const SETTINGS_COL = 'settings';
 const AUDIT_COL = 'auditLogs';
 const USERS_COL = 'users';
 
+/**
+ * Deep recursive sanitizer that removes undefined values so Firestore does not reject writes
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) return null as any;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as any;
+  }
+  const clean: any = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      clean[key] = sanitizeForFirestore(value);
+    }
+  }
+  return clean;
+}
+
 // Seeding function if Firestore is uninitialized
 export const seedFirestoreIfEmpty = async () => {
   try {
@@ -48,7 +66,7 @@ export const seedFirestoreIfEmpty = async () => {
     if (prodSnapshot.empty) {
       console.log('🌱 Seeding Firestore with BarKwetu initial products...');
       for (const p of INITIAL_PRODUCTS) {
-        await setDoc(doc(db, PRODUCTS_COL, p.id), p);
+        await setDoc(doc(db, PRODUCTS_COL, p.id), sanitizeForFirestore(p));
       }
     }
 
@@ -57,7 +75,7 @@ export const seedFirestoreIfEmpty = async () => {
     if (catSnapshot.empty) {
       console.log('🌱 Seeding Firestore with BarKwetu categories...');
       for (const c of INITIAL_CATEGORIES) {
-        await setDoc(doc(db, CATEGORIES_COL, c.id), c);
+        await setDoc(doc(db, CATEGORIES_COL, c.id), sanitizeForFirestore(c));
       }
     }
 
@@ -66,7 +84,7 @@ export const seedFirestoreIfEmpty = async () => {
     if (promoSnapshot.empty) {
       console.log('🌱 Seeding Firestore with BarKwetu promo codes...');
       for (const pr of INITIAL_PROMO_CODES) {
-        await setDoc(doc(db, PROMOS_COL, pr.id), pr);
+        await setDoc(doc(db, PROMOS_COL, pr.id), sanitizeForFirestore(pr));
       }
     }
 
@@ -74,14 +92,14 @@ export const seedFirestoreIfEmpty = async () => {
     const settingDoc = await getDoc(doc(db, SETTINGS_COL, 'main'));
     if (!settingDoc.exists()) {
       console.log('🌱 Seeding Firestore with BarKwetu site settings...');
-      await setDoc(doc(db, SETTINGS_COL, 'main'), INITIAL_SETTINGS);
+      await setDoc(doc(db, SETTINGS_COL, 'main'), sanitizeForFirestore(INITIAL_SETTINGS));
     }
 
     // 5. Check sample orders
     const orderSnapshot = await getDocs(collection(db, ORDERS_COL));
     if (orderSnapshot.empty) {
       console.log('🌱 Seeding Firestore with sample Kenyan order...');
-      await setDoc(doc(db, ORDERS_COL, INITIAL_SAMPLE_ORDER.id), INITIAL_SAMPLE_ORDER);
+      await setDoc(doc(db, ORDERS_COL, INITIAL_SAMPLE_ORDER.id), sanitizeForFirestore(INITIAL_SAMPLE_ORDER));
     }
 
     // 6. Check users
@@ -89,7 +107,7 @@ export const seedFirestoreIfEmpty = async () => {
     if (userSnapshot.empty) {
       console.log('🌱 Seeding Firestore with admin users...');
       for (const u of INITIAL_USERS) {
-        await setDoc(doc(db, USERS_COL, u.id), u);
+        await setDoc(doc(db, USERS_COL, u.id), sanitizeForFirestore(u));
       }
     }
   } catch (error) {
@@ -104,10 +122,8 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
   return onSnapshot(
     q,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((d) => d.data() as Product);
-        callback(items);
-      }
+      const items = snapshot.docs.map((d) => d.data() as Product);
+      callback(items);
     },
     (err) => console.error('Error listening to products:', err)
   );
@@ -118,11 +134,9 @@ export const subscribeToCategories = (callback: (categories: Category[]) => void
   return onSnapshot(
     q,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((d) => d.data() as Category);
-        items.sort((a, b) => a.displayOrder - b.displayOrder);
-        callback(items);
-      }
+      const items = snapshot.docs.map((d) => d.data() as Category);
+      items.sort((a, b) => a.displayOrder - b.displayOrder);
+      callback(items);
     },
     (err) => console.error('Error listening to categories:', err)
   );
@@ -133,11 +147,9 @@ export const subscribeToOrders = (callback: (orders: Order[]) => void) => {
   return onSnapshot(
     q,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((d) => d.data() as Order);
-        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        callback(items);
-      }
+      const items = snapshot.docs.map((d) => d.data() as Order);
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(items);
     },
     (err) => console.error('Error listening to orders:', err)
   );
@@ -148,10 +160,8 @@ export const subscribeToPromoCodes = (callback: (promos: PromoCode[]) => void) =
   return onSnapshot(
     q,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((d) => d.data() as PromoCode);
-        callback(items);
-      }
+      const items = snapshot.docs.map((d) => d.data() as PromoCode);
+      callback(items);
     },
     (err) => console.error('Error listening to promo codes:', err)
   );
@@ -175,13 +185,23 @@ export const subscribeToAuditLogs = (callback: (logs: AuditLog[]) => void) => {
   return onSnapshot(
     q,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((d) => d.data() as AuditLog);
-        items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        callback(items);
-      }
+      const items = snapshot.docs.map((d) => d.data() as AuditLog);
+      items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      callback(items);
     },
     (err) => console.error('Error listening to audit logs:', err)
+  );
+};
+
+export const subscribeToUsers = (callback: (users: User[]) => void) => {
+  const q = collection(db, USERS_COL);
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => d.data() as User);
+      callback(items);
+    },
+    (err) => console.error('Error listening to users:', err)
   );
 };
 
@@ -189,7 +209,8 @@ export const subscribeToAuditLogs = (callback: (logs: AuditLog[]) => void) => {
 
 // Products
 export const syncSaveProduct = async (product: Product) => {
-  await setDoc(doc(db, PRODUCTS_COL, product.id), product);
+  const clean = sanitizeForFirestore(product);
+  await setDoc(doc(db, PRODUCTS_COL, product.id), clean);
 };
 
 export const syncDeleteProduct = async (productId: string) => {
@@ -202,7 +223,8 @@ export const syncAdjustStock = async (productId: string, newStock: number) => {
 
 // Categories
 export const syncSaveCategory = async (category: Category) => {
-  await setDoc(doc(db, CATEGORIES_COL, category.id), category);
+  const clean = sanitizeForFirestore(category);
+  await setDoc(doc(db, CATEGORIES_COL, category.id), clean);
 };
 
 export const syncDeleteCategory = async (categoryId: string) => {
@@ -211,12 +233,14 @@ export const syncDeleteCategory = async (categoryId: string) => {
 
 // Orders
 export const syncSaveOrder = async (order: Order) => {
-  await setDoc(doc(db, ORDERS_COL, order.id), order);
+  const clean = sanitizeForFirestore(order);
+  await setDoc(doc(db, ORDERS_COL, order.id), clean);
 };
 
 export const syncUpdateRiderLocation = async (orderId: string, location: any) => {
+  const clean = sanitizeForFirestore(location);
   await updateDoc(doc(db, ORDERS_COL, orderId), {
-    riderLocation: location,
+    riderLocation: clean,
     updatedAt: new Date().toISOString(),
   });
 };
@@ -229,11 +253,11 @@ export const syncUpdateOrderStatus = async (
 ) => {
   const updatePayload: any = {
     status,
-    timeline,
+    timeline: sanitizeForFirestore(timeline),
     updatedAt: new Date().toISOString(),
   };
   if (mpesaDetails) {
-    updatePayload.mpesaDetails = mpesaDetails;
+    updatePayload.mpesaDetails = sanitizeForFirestore(mpesaDetails);
     updatePayload.paymentStatus = 'completed';
   }
   await updateDoc(doc(db, ORDERS_COL, orderId), updatePayload);
@@ -241,7 +265,8 @@ export const syncUpdateOrderStatus = async (
 
 // Promo Codes
 export const syncSavePromoCode = async (promo: PromoCode) => {
-  await setDoc(doc(db, PROMOS_COL, promo.id), promo);
+  const clean = sanitizeForFirestore(promo);
+  await setDoc(doc(db, PROMOS_COL, promo.id), clean);
 };
 
 export const syncTogglePromoCode = async (promoId: string, isActive: boolean) => {
@@ -250,17 +275,20 @@ export const syncTogglePromoCode = async (promoId: string, isActive: boolean) =>
 
 // Settings
 export const syncSaveSettings = async (settings: SiteSettings) => {
-  await setDoc(doc(db, SETTINGS_COL, 'main'), settings);
+  const clean = sanitizeForFirestore(settings);
+  await setDoc(doc(db, SETTINGS_COL, 'main'), clean);
 };
 
 // Audit Logs
 export const syncSaveAuditLog = async (log: AuditLog) => {
-  await setDoc(doc(db, AUDIT_COL, log.id), log);
+  const clean = sanitizeForFirestore(log);
+  await setDoc(doc(db, AUDIT_COL, log.id), clean);
 };
 
 // Users
 export const syncSaveUser = async (user: User) => {
-  await setDoc(doc(db, USERS_COL, user.id), user);
+  const clean = sanitizeForFirestore(user);
+  await setDoc(doc(db, USERS_COL, user.id), clean);
 };
 
 export const syncDeleteUser = async (userId: string) => {

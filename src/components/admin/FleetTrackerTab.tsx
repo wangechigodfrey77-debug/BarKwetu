@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { loadGoogleMaps, BARKWETU_MAP_DARK_THEME } from '../../services/googleMapsLoader';
-import { STORE_HUB_LOCATION, NAIROBI_DELIVERY_ZONES, calculateDistanceKm } from '../../utils/kenyaLocations';
+import { STORE_HUB_LOCATION, calculateDistanceKm } from '../../utils/kenyaLocations';
 import { User, Order } from '../../types';
 import { formatKenyanPhone, formatDateTime } from '../../utils/formatters';
 import {
@@ -18,6 +18,10 @@ import {
   Compass,
   UserCheck,
   Zap,
+  Key,
+  Lock,
+  Check,
+  X,
 } from 'lucide-react';
 
 export const FleetTrackerTab: React.FC = () => {
@@ -25,6 +29,7 @@ export const FleetTrackerTab: React.FC = () => {
     orders,
     adminUsers,
     createAdminAccount,
+    resetUserPasswordByAdmin,
     assignRiderToOrder,
     updateRiderGpsLocation,
     showToast,
@@ -33,12 +38,16 @@ export const FleetTrackerTab: React.FC = () => {
 
   const [selectedRiderId, setSelectedRiderId] = useState<string | null>('user-rider-1');
   const [isCreatingRider, setIsCreatingRider] = useState(false);
+  const [resettingRider, setResettingRider] = useState<User | null>(null);
+  const [customResetPassword, setCustomResetPassword] = useState('rider123');
+
   const [newRiderForm, setNewRiderForm] = useState({
     fullName: '',
     phone: '+254',
     bikeRegistration: 'KMCE ',
     username: '',
     email: '',
+    password: 'rider123',
   });
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -56,17 +65,18 @@ export const FleetTrackerTab: React.FC = () => {
       email: 'rider@barkwetu.co.ke',
       phone: '+254700000004',
       role: 'rider',
+      password: 'rider123',
       bikeRegistration: 'KMCE 482J',
       createdAt: '2026-03-01T00:00:00.000Z',
     },
   ];
 
-  // Active orders with GPS coordinates
+  // Active Dispatches (orders currently with out_for_delivery or preparing)
   const activeOrdersWithGps = orders.filter(
-    (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+    (o) => o.status === 'out_for_delivery' || (o.riderLocation && o.status !== 'delivered' && o.status !== 'cancelled')
   );
 
-  // Initialize Admin Fleet Google Map
+  // Initialize Fleet Google Map
   useEffect(() => {
     let isMounted = true;
 
@@ -77,73 +87,76 @@ export const FleetTrackerTab: React.FC = () => {
       if (!googleObj || !isMounted) return;
 
       const map = new googleObj.maps.Map(mapContainerRef.current, {
-        center: { lat: STORE_HUB_LOCATION.lat, lng: STORE_HUB_LOCATION.lng }, // Karatina Central
+        center: { lat: STORE_HUB_LOCATION.lat, lng: STORE_HUB_LOCATION.lng },
         zoom: 14,
         styles: BARKWETU_MAP_DARK_THEME,
         disableDefaultUI: false,
-        zoomControl: true,
+        mapTypeControl: false,
         streetViewControl: false,
+        fullscreenControl: true,
       });
+
       mapInstanceRef.current = map;
 
-      // 1. Central Vault Store Hub Marker
+      // Central Hub Marker (BarKwetu Karatina Hub)
       new googleObj.maps.Marker({
         position: { lat: STORE_HUB_LOCATION.lat, lng: STORE_HUB_LOCATION.lng },
         map,
-        title: 'BarKwetu Central Dispatch Vault (Karatina CBD)',
+        title: 'BarKwetu Hub Karatina',
         icon: {
           path: googleObj.maps.SymbolPath.CIRCLE,
           scale: 9,
           fillColor: '#d4af37',
           fillOpacity: 1,
-          strokeColor: '#000000',
+          strokeColor: '#ffffff',
           strokeWeight: 2,
         },
       });
 
-      // 2. Plot Active Delivery Destinations
+      // Plot active delivery destinations & riders
       activeOrdersWithGps.forEach((order) => {
-        const destCoords = order.destinationCoords || order.shippingAddress.coordinates || {
-          lat: -0.4817,
-          lng: 37.1265,
-        };
-
-        const destMarker = new googleObj.maps.Marker({
-          position: destCoords,
-          map,
-          title: `Delivery: ${order.orderNumber} - ${order.userName}`,
-          icon: {
-            path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-            fillColor: '#ef4444',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 1.5,
-            scale: 1.4,
-            anchor: new googleObj.maps.Point(12, 22),
-          },
-        });
-
-        markersRef.current[`dest-${order.id}`] = destMarker;
-      });
-
-      // 3. Plot Active Riders
-      orders.forEach((order) => {
-        if (order.riderLocation) {
-          const riderMarker = new googleObj.maps.Marker({
-            position: { lat: order.riderLocation.lat, lng: order.riderLocation.lng },
+        // Customer Pin
+        if (order.shippingAddress.coordinates) {
+          new googleObj.maps.Marker({
+            position: order.shippingAddress.coordinates,
             map,
-            title: `Rider: ${order.assignedRiderName || 'BarKwetu Rider'} (${order.orderNumber})`,
+            title: `Customer: ${order.shippingAddress.fullName} (${order.orderNumber})`,
             icon: {
-              path: googleObj.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-              scale: 7,
-              fillColor: '#22c55e',
+              path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
+              fillColor: '#ef4444',
               fillOpacity: 1,
               strokeColor: '#ffffff',
-              strokeWeight: 2,
-              rotation: order.riderLocation.heading || 0,
+              strokeWeight: 1.5,
+              scale: 1.4,
+              anchor: new googleObj.maps.Point(12, 22),
             },
           });
-          markersRef.current[`rider-${order.id}`] = riderMarker;
+        }
+
+        // Live Rider Pin
+        if (order.riderLocation) {
+          const riderLoc = { lat: order.riderLocation.lat, lng: order.riderLocation.lng };
+          const markerKey = `rider-${order.id}`;
+
+          if (markersRef.current[markerKey]) {
+            markersRef.current[markerKey].setPosition(riderLoc);
+          } else {
+            const marker = new googleObj.maps.Marker({
+              position: riderLoc,
+              map,
+              title: `${order.assignedRiderName || 'Boda'} (Speed: ${order.riderLocation.speed}km/h)`,
+              icon: {
+                path: googleObj.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 6,
+                fillColor: '#22c55e',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+                rotation: order.riderLocation.heading || 0,
+              },
+            });
+            markersRef.current[markerKey] = marker;
+          }
         }
       });
     }
@@ -167,10 +180,13 @@ export const FleetTrackerTab: React.FC = () => {
     const emailClean = newRiderForm.email || `${usernameClean}@barkwetu.co.ke`;
 
     createAdminAccount({
-      fullName: `${newRiderForm.fullName} (${newRiderForm.bikeRegistration || 'Fleet Bike'})`,
+      fullName: newRiderForm.fullName,
       username: usernameClean,
       email: emailClean,
-      role: 'admin', // Stored under account table with rider metadata
+      phone: newRiderForm.phone,
+      bikeRegistration: newRiderForm.bikeRegistration || 'KMCE 482J',
+      password: newRiderForm.password || 'rider123',
+      role: 'rider',
     });
 
     setIsCreatingRider(false);
@@ -180,8 +196,19 @@ export const FleetTrackerTab: React.FC = () => {
       bikeRegistration: 'KMCE ',
       username: '',
       email: '',
+      password: 'rider123',
     });
-    showToast(`Rider account for ${newRiderForm.fullName} provisioned!`, 'success');
+    showToast(`Rider account for ${newRiderForm.fullName} provisioned! Password set to ${newRiderForm.password || 'rider123'}`, 'success');
+  };
+
+  // Handle Admin Reset Password for Rider
+  const handleConfirmResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resettingRider) return;
+
+    await resetUserPasswordByAdmin(resettingRider.id, customResetPassword || 'rider123');
+    setResettingRider(null);
+    setCustomResetPassword('rider123');
   };
 
   return (
@@ -198,7 +225,7 @@ export const FleetTrackerTab: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-zinc-400">
-            Real-time live telemetry, GPS broadcast diagnostics, and express boda dispatch across Karatina Town & Mathira sub-county.
+            Real-time live telemetry, password governance, and express boda dispatch across Karatina Town & Mathira sub-county.
           </p>
         </div>
 
@@ -248,32 +275,32 @@ export const FleetTrackerTab: React.FC = () => {
 
             {/* Map Legend Overlay */}
             <div className="absolute top-3 left-3 bg-[#0d0e12]/90 backdrop-blur-md border border-zinc-800/90 rounded-lg p-2.5 text-[11px] space-y-1.5 shadow-xl">
-              <div className="flex items-center gap-2 text-zinc-300">
+              <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#d4af37]" />
-                <span>BarKwetu Vault (Hub)</span>
+                <span className="text-zinc-300 font-medium">BarKwetu Karatina Central Hub</span>
               </div>
-              <div className="flex items-center gap-2 text-zinc-300">
+              <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span>Active Rider GPS Position</span>
+                <span className="text-zinc-300 font-medium">Active Boda Rider (Real-Time GPS)</span>
               </div>
-              <div className="flex items-center gap-2 text-zinc-300">
+              <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span>Customer Delivery Drop-off</span>
+                <span className="text-zinc-300 font-medium">Customer Karatina Drop-off</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Fleet List & Active Riders Panel */}
-        <div className="space-y-4">
-          <div className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 space-y-4">
+        {/* Fleet Roster & Rider Password Governance Column */}
+        <div className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-              <h3 className="font-serif text-sm font-bold text-white flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Bike className="w-4 h-4 text-emerald-400" />
-                <span>Express Fleet Directory</span>
-              </h3>
-              <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
-                {allRiders.length} Registered
+                <h3 className="font-serif text-sm font-bold text-white">Registered Riders</h3>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
+                {allRiders.length} Fleet Members
               </span>
             </div>
 
@@ -295,11 +322,11 @@ export const FleetTrackerTab: React.FC = () => {
                           <span>{rider.fullName}</span>
                         </p>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Bike Plate: <strong className="font-mono text-zinc-200">{rider.bikeRegistration || 'KMCE 482J'}</strong>
+                          Bike Plate: <strong className="font-mono text-zinc-200">{rider.bikeRegistration || 'KMCE 482J'}</strong> · User: <span className="font-mono text-[#d4af37]">{rider.username}</span>
                         </p>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Online
+                        Authorized
                       </span>
                     </div>
 
@@ -308,9 +335,18 @@ export const FleetTrackerTab: React.FC = () => {
                         <Phone className="w-3 h-3 text-zinc-500" />
                         <span>{formatKenyanPhone(rider.phone || '+254700000004')}</span>
                       </span>
-                      <span className="text-zinc-300 font-medium">
-                        {assignedOrders.length} active delivery
-                      </span>
+                      
+                      <button
+                        onClick={() => {
+                          setResettingRider(rider);
+                          setCustomResetPassword(rider.password || 'rider123');
+                        }}
+                        className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-[#d4af37] hover:text-black text-zinc-300 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                        title="Admin Reset Password"
+                      >
+                        <Key className="w-3 h-3 text-[#d4af37]" />
+                        <span>Reset Pwd</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -462,15 +498,27 @@ export const FleetTrackerTab: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-zinc-400 font-medium mb-1">Rider Login Username (Optional)</label>
-                <input
-                  type="text"
-                  value={newRiderForm.username}
-                  onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value.toLowerCase() })}
-                  placeholder="e.g. rider2"
-                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-zinc-400 font-medium mb-1">Login Username</label>
+                  <input
+                    type="text"
+                    value={newRiderForm.username}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, username: e.target.value.toLowerCase() })}
+                    placeholder="e.g. rider2"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 font-medium mb-1">Initial Password</label>
+                  <input
+                    type="text"
+                    value={newRiderForm.password}
+                    onChange={(e) => setNewRiderForm({ ...newRiderForm, password: e.target.value })}
+                    placeholder="Default: rider123"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-3 border-t border-zinc-800">
@@ -486,6 +534,74 @@ export const FleetTrackerTab: React.FC = () => {
                   className="flex-1 py-2.5 px-4 rounded-xl bg-[#d4af37] text-black font-bold hover:brightness-110 cursor-pointer"
                 >
                   Create Rider
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Admin Reset Rider Password */}
+      {resettingRider && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121318] border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                <Key className="w-5 h-5 text-[#d4af37]" />
+                <span>Reset Rider Password</span>
+              </h3>
+              <button
+                onClick={() => setResettingRider(null)}
+                className="text-zinc-500 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#090a0d] border border-zinc-800 rounded-xl p-3.5 space-y-1 text-xs">
+              <p className="text-zinc-400">Rider: <strong className="text-white">{resettingRider.fullName}</strong></p>
+              <p className="text-zinc-400">Username: <span className="text-[#d4af37] font-mono">{resettingRider.username}</span></p>
+              <p className="text-zinc-400">Bike Plate: <span className="font-mono text-zinc-300">{resettingRider.bikeRegistration || 'KMCE 482J'}</span></p>
+            </div>
+
+            <form onSubmit={handleConfirmResetPassword} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-zinc-300 font-medium mb-1">
+                  New Password (or keep default rider123)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={customResetPassword}
+                  onChange={(e) => setCustomResetPassword(e.target.value)}
+                  placeholder="rider123"
+                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomResetPassword('rider123')}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-mono cursor-pointer"
+                >
+                  Set to default "rider123"
+                </button>
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setResettingRider(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#d4af37] text-black font-bold hover:brightness-110 cursor-pointer"
+                >
+                  Confirm Reset
                 </button>
               </div>
             </form>

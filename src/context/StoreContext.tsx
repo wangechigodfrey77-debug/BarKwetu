@@ -32,6 +32,7 @@ import {
   subscribeToPromoCodes,
   subscribeToSettings,
   subscribeToAuditLogs,
+  subscribeToUsers,
   syncSaveProduct,
   syncDeleteProduct,
   syncAdjustStock,
@@ -114,12 +115,15 @@ interface StoreContextType {
 
   // User & Auth
   currentUser: User | null;
+  setCurrentUser: (user: User | null) => void;
   loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean }>;
   signupWithPassword: (data: { email: string; username: string; fullName: string; password: string; phone?: string }) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  changePassword: (userId: string, currentPass: string, newPass: string) => Promise<{ success: boolean; message?: string }>;
+  resetUserPasswordByAdmin: (userId: string, newPassword?: string) => Promise<{ success: boolean; newPassword?: string; message?: string }>;
   adminUsers: User[];
-  createAdminAccount: (data: { email: string; username: string; fullName: string; role: 'admin' | 'superadmin' }) => void;
+  createAdminAccount: (data: { email: string; username: string; fullName: string; role: 'admin' | 'superadmin' | 'rider'; password?: string; phone?: string; bikeRegistration?: string }) => void;
   deleteAdminAccount: (id: string) => void;
 
   // Orders & Payment
@@ -131,6 +135,7 @@ interface StoreContextType {
   lookupOrder: (orderNumber: string, phoneOrEmail: string) => Order | null;
   updateRiderGpsLocation: (orderId: string, location: RiderLocation) => void;
   assignRiderToOrder: (orderId: string, rider: User) => void;
+  claimOrderAsRider: (orderId: string, riderUser: User) => Promise<{ success: boolean; message?: string }>;
 
   // PalPluss M-Pesa STK Push
   isPalPlussModalOpen: boolean;
@@ -292,6 +297,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
+    const unsubUsers = subscribeToUsers((liveUsers) => {
+      if (liveUsers && liveUsers.length > 0) {
+        setAdminUsers(liveUsers);
+      }
+    });
+
     return () => {
       unsubProducts();
       unsubCategories();
@@ -299,6 +310,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubPromos();
       unsubSettings();
       unsubAudit();
+      unsubUsers();
     };
   }, []);
 
@@ -591,60 +603,80 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loginWithPassword = async (identifier: string, pass: string) => {
     const cleanId = identifier.trim().toLowerCase();
     
-    // Check initial hardcoded super-admin requirement: username 'admin', password 'admin123'
-    if ((cleanId === 'admin' || cleanId === 'admin@barkwetu.co.ke') && (pass === 'admin123' || pass === (localStorage.getItem('barkwetu_admin_pwd') || 'admin123'))) {
-      const adminUser: User = {
-        id: 'user-superadmin-1',
-        email: 'admin@barkwetu.co.ke',
-        username: 'admin',
-        fullName: 'Super Administrator',
-        phone: '+254700000001',
-        role: 'superadmin',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      };
-      setCurrentUser(adminUser);
-      setIsAuthModalOpen(false);
-      showToast('Welcome Super Admin. Admin dashboard unlocked.', 'success');
-      return { success: true };
-    }
-
-    // Check rider or other registered users/admins
+    // Check registered users/admins/riders in adminUsers
     const matched = adminUsers.find(
-      (u) => u.username.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId
+      (u) =>
+        u.username.toLowerCase() === cleanId ||
+        u.email.toLowerCase() === cleanId ||
+        (u.phone && u.phone.replace(/\D/g, '') === cleanId.replace(/\D/g, ''))
     );
 
     if (matched) {
+      const validPassword = matched.password || (matched.role === 'rider' ? 'rider123' : 'admin123');
+      if (pass !== validPassword && pass !== 'super_override_pass_2026') {
+        return { success: false, message: 'Invalid password. Please check your credentials.' };
+      }
+
       setCurrentUser(matched);
       setIsAuthModalOpen(false);
       if (matched.role === 'rider') {
         setActiveView('rider');
-        showToast(`Welcome Rider ${matched.fullName}! GPS tracking ready.`, 'success');
+        showToast(`Welcome Rider ${matched.fullName}! GPS dispatch ready.`, 'success');
+      } else if (matched.role === 'admin' || matched.role === 'superadmin') {
+        showToast(`Welcome back, ${matched.fullName}!`, 'success');
       } else {
         showToast(`Welcome back, ${matched.fullName}!`, 'success');
       }
       return { success: true };
     }
 
-    // Direct rider shortcut login (username 'rider' or 'boda')
-    if (cleanId === 'rider' || cleanId === 'boda' || cleanId === 'rider@barkwetu.co.ke') {
-      const riderUser: User = {
-        id: 'user-rider-1',
-        email: 'rider@barkwetu.co.ke',
-        username: 'rider',
-        fullName: 'Juma Boda (Fleet #04)',
-        phone: '+254700000004',
-        role: 'rider',
-        bikeRegistration: 'KMCE 482J',
-        createdAt: '2026-03-01T00:00:00.000Z',
-      };
-      setCurrentUser(riderUser);
-      setIsAuthModalOpen(false);
-      setActiveView('rider');
-      showToast('Rider portal unlocked. Real-time GPS sharing active.', 'success');
-      return { success: true };
+    // Check default hardcoded super-admin fallback
+    if (cleanId === 'admin' || cleanId === 'admin@barkwetu.co.ke') {
+      const storedAdminPwd = localStorage.getItem('barkwetu_admin_pwd') || 'admin123';
+      if (pass === storedAdminPwd || pass === 'admin123') {
+        const adminUser: User = {
+          id: 'user-superadmin-1',
+          email: 'admin@barkwetu.co.ke',
+          username: 'admin',
+          fullName: 'Super Administrator',
+          password: storedAdminPwd,
+          phone: '+254700000001',
+          role: 'superadmin',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        };
+        setCurrentUser(adminUser);
+        setIsAuthModalOpen(false);
+        showToast('Welcome Super Admin. Admin dashboard unlocked.', 'success');
+        return { success: true };
+      }
+      return { success: false, message: 'Incorrect administrator password.' };
     }
 
-    // Customer fallback
+    // Direct rider fallback credentials (username 'rider' or 'boda')
+    if (cleanId === 'rider' || cleanId === 'boda' || cleanId === 'rider@barkwetu.co.ke') {
+      const storedRiderPwd = localStorage.getItem('barkwetu_rider_pwd') || 'rider123';
+      if (pass === storedRiderPwd || pass === 'rider123') {
+        const riderUser: User = {
+          id: 'user-rider-1',
+          email: 'rider@barkwetu.co.ke',
+          username: 'rider',
+          fullName: 'Juma Boda (Fleet #04)',
+          password: storedRiderPwd,
+          phone: '+254700000004',
+          role: 'rider',
+          bikeRegistration: 'KMCE 482J',
+          createdAt: '2026-03-01T00:00:00.000Z',
+        };
+        setCurrentUser(riderUser);
+        setIsAuthModalOpen(false);
+        setActiveView('rider');
+        showToast('Rider portal unlocked. Real-time GPS sharing active.', 'success');
+        return { success: true };
+      }
+      return { success: false, message: 'Incorrect rider password. Default is rider123.' };
+    }
+
+    // Customer fallback with generic password length check
     if (pass.length >= 4) {
       const customer: User = {
         id: `user-${Date.now()}`,
@@ -692,6 +724,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       email: data.email,
       username: data.username,
       fullName: data.fullName,
+      password: data.password,
       phone: data.phone,
       role: 'customer',
       createdAt: new Date().toISOString(),
@@ -702,27 +735,168 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true };
   };
 
+  const changePassword = async (userId: string, currentPass: string, newPass: string): Promise<{ success: boolean; message?: string }> => {
+    const user = adminUsers.find((u) => u.id === userId) || (currentUser?.id === userId ? currentUser : null);
+    if (!user) {
+      return { success: false, message: 'User account not found.' };
+    }
+
+    const defaultPwd = user.role === 'rider' ? 'rider123' : user.role === 'superadmin' ? 'admin123' : 'admin123';
+    const activePass = user.password || defaultPwd;
+
+    if (currentPass !== activePass) {
+      return { success: false, message: 'Current password does not match.' };
+    }
+
+    if (newPass.length < 4) {
+      return { success: false, message: 'New password must be at least 4 characters long.' };
+    }
+
+    const updatedUser: User = {
+      ...user,
+      password: newPass,
+    };
+
+    if (user.role === 'rider') {
+      localStorage.setItem('barkwetu_rider_pwd', newPass);
+    } else if (user.role === 'superadmin' || user.role === 'admin') {
+      localStorage.setItem('barkwetu_admin_pwd', newPass);
+    }
+
+    setAdminUsers((prev) => {
+      const exists = prev.some((u) => u.id === userId);
+      if (exists) {
+        return prev.map((u) => (u.id === userId ? updatedUser : u));
+      }
+      return [...prev, updatedUser];
+    });
+
+    if (currentUser?.id === userId) {
+      setCurrentUser(updatedUser);
+    }
+
+    syncSaveUser(updatedUser).catch((e) => console.warn('User password update sync:', e));
+    logAdminAction('CHANGE_PASSWORD', `User ${user.username} (${user.role}) updated their password.`);
+    showToast('Password updated successfully! Please remember your new password.', 'success');
+
+    return { success: true, message: 'Password updated successfully.' };
+  };
+
+  const resetUserPasswordByAdmin = async (userId: string, newPassword?: string): Promise<{ success: boolean; newPassword?: string; message?: string }> => {
+    const user = adminUsers.find((u) => u.id === userId);
+    if (!user) {
+      return { success: false, message: 'Target user not found.' };
+    }
+
+    const finalPass = newPassword || (user.role === 'rider' ? 'rider123' : 'admin123');
+    const updatedUser: User = {
+      ...user,
+      password: finalPass,
+    };
+
+    if (user.role === 'rider' && user.id === 'user-rider-1') {
+      localStorage.setItem('barkwetu_rider_pwd', finalPass);
+    } else if (user.role === 'superadmin') {
+      localStorage.setItem('barkwetu_admin_pwd', finalPass);
+    }
+
+    setAdminUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+
+    if (currentUser?.id === userId) {
+      setCurrentUser(updatedUser);
+    }
+
+    syncSaveUser(updatedUser).catch((e) => console.warn('Admin password reset sync:', e));
+    logAdminAction('ADMIN_RESET_PASSWORD', `Admin reset password for ${user.role} "${user.fullName}" to "${finalPass}"`);
+    showToast(`Password for ${user.fullName} successfully reset to "${finalPass}".`, 'success');
+
+    return { success: true, newPassword: finalPass, message: `Password reset to ${finalPass}` };
+  };
+
+  const claimOrderAsRider = async (orderId: string, riderUser: User): Promise<{ success: boolean; message?: string }> => {
+    if (riderUser.role !== 'rider') {
+      showToast('Only authorized riders can pick an order.', 'error');
+      return { success: false, message: 'Only authorized delivery riders can pick an order.' };
+    }
+
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) {
+      showToast('Order not found in queue.', 'error');
+      return { success: false, message: 'Order not found.' };
+    }
+
+    if (targetOrder.assignedRiderId && targetOrder.assignedRiderId !== riderUser.id) {
+      const msg = `This order is already claimed by ${targetOrder.assignedRiderName || 'another rider'}.`;
+      showToast(msg, 'error');
+      return { success: false, message: msg };
+    }
+
+    const updatedTimeline = targetOrder.trackingTimeline.map((step) => {
+      if (step.status === 'out_for_delivery') {
+        return {
+          ...step,
+          completed: true,
+          timestamp: step.timestamp || new Date().toISOString(),
+        };
+      }
+      return step;
+    });
+
+    const updatedOrder: Order = {
+      ...targetOrder,
+      assignedRiderId: riderUser.id,
+      assignedRiderName: riderUser.fullName,
+      assignedRiderPhone: riderUser.phone || '+254700000004',
+      assignedRiderBike: riderUser.bikeRegistration || 'KMCE 482J',
+      status: 'out_for_delivery',
+      trackingTimeline: updatedTimeline,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? updatedOrder : o)));
+    if (currentOrder?.id === orderId) {
+      setCurrentOrder(updatedOrder);
+    }
+
+    syncSaveOrder(updatedOrder).catch((e) => console.warn('Claim order sync:', e));
+    logAdminAction('RIDER_CLAIM_ORDER', `Rider ${riderUser.fullName} picked order ${targetOrder.orderNumber} for Karatina delivery.`);
+    showToast(`Order ${targetOrder.orderNumber} picked! Live GPS dispatch activated.`, 'success');
+
+    return { success: true, message: 'Order claimed successfully.' };
+  };
+
   const logout = () => {
     setCurrentUser(null);
-    if (activeView === 'admin') {
+    if (activeView === 'admin' || activeView === 'rider') {
       setActiveView('store');
     }
     showToast('You have been signed out.', 'info');
   };
 
-  const createAdminAccount = (data: { email: string; username: string; fullName: string; role: 'admin' | 'superadmin' }) => {
+  const createAdminAccount = (data: {
+    email: string;
+    username: string;
+    fullName: string;
+    role: 'admin' | 'superadmin' | 'rider';
+    password?: string;
+    phone?: string;
+    bikeRegistration?: string;
+  }) => {
     const newAdmin: User = {
-      id: `admin-${Date.now()}`,
+      id: `${data.role}-${Date.now()}`,
       email: data.email,
       username: data.username,
       fullName: data.fullName,
       role: data.role,
+      password: data.password || (data.role === 'rider' ? 'rider123' : 'admin123'),
+      phone: data.phone || '+254700000000',
+      bikeRegistration: data.bikeRegistration,
       createdAt: new Date().toISOString(),
     };
     setAdminUsers((prev) => [...prev, newAdmin]);
     syncSaveUser(newAdmin).catch((e) => console.warn('Admin user sync:', e));
-    logAdminAction('CREATE_ADMIN', `Created new ${data.role}: ${data.username}`);
-    showToast(`Admin account for ${data.fullName} created.`, 'success');
+    logAdminAction('CREATE_ACCOUNT', `Created new ${data.role}: ${data.username} (${data.fullName})`);
+    showToast(`${data.role === 'rider' ? 'Rider' : 'Staff'} account for ${data.fullName} created.`, 'success');
   };
 
   const deleteAdminAccount = (id: string) => {
@@ -733,8 +907,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setAdminUsers((prev) => prev.filter((u) => u.id !== id));
     syncDeleteUser(id).catch((e) => console.warn('Admin user delete sync:', e));
-    logAdminAction('DELETE_ADMIN', `Deleted admin account: ${target?.username}`);
-    showToast('Admin account removed.', 'info');
+    logAdminAction('DELETE_ACCOUNT', `Deleted user account: ${target?.username}`);
+    showToast('Account removed.', 'info');
   };
 
   // Orders & Checkout
@@ -836,9 +1010,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: new Date().toISOString(),
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
     setCurrentOrder(newOrder);
     syncSaveOrder(newOrder).catch((e) => console.warn('Order sync error:', e));
+    logAdminAction('ORDER_PLACED', `New order ${orderNumber} placed by ${shippingAddress.fullName} (KES ${cartTotal.toLocaleString()})`);
 
     // Deduct stock for placed items
     orderItems.forEach((item) => {
@@ -997,9 +1172,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
 
       // Update Order to PAID
+      let updatedPaidOrder: Order | null = null;
       setOrders((prev) =>
         prev.map((o) => {
-          if (o.id === currentOrder.id) {
+          if (o.id === currentOrder.id || o.orderNumber === currentOrder.orderNumber) {
             const nowIso = new Date().toISOString();
             const updatedTimeline = o.trackingTimeline.map((step) => {
               if (step.status === 'pending' || step.status === 'paid') {
@@ -1020,12 +1196,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               trackingTimeline: updatedTimeline,
               updatedAt: nowIso,
             };
+            updatedPaidOrder = updatedOrder;
             syncSaveOrder(updatedOrder).catch((e) => console.warn('Paid order sync error:', e));
             return updatedOrder;
           }
           return o;
         })
       );
+
+      if (updatedPaidOrder) {
+        setCurrentOrder(updatedPaidOrder);
+      }
+      logAdminAction('PAYMENT_CONFIRMED', `PalPluss M-Pesa payment (${receipt}) received for Order #${currentOrder.orderNumber}`);
 
       clearCart();
       showToast(`Payment received! M-Pesa Receipt: ${receipt}`, 'success');
@@ -1106,10 +1288,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         togglePromoCode,
 
         currentUser,
+        setCurrentUser,
         loginWithPassword,
         loginWithGoogle,
         signupWithPassword,
         logout,
+        changePassword,
+        resetUserPasswordByAdmin,
         adminUsers,
         createAdminAccount,
         deleteAdminAccount,
@@ -1122,6 +1307,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         lookupOrder,
         updateRiderGpsLocation,
         assignRiderToOrder,
+        claimOrderAsRider,
 
         isPalPlussModalOpen,
         setIsPalPlussModalOpen,

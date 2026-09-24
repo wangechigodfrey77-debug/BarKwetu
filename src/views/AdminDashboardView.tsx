@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Product, Category, PromoCode, OrderStatus } from '../types';
+import { Product, Category, PromoCode, OrderStatus, User } from '../types';
 import { formatKES, formatDateTime, formatKenyanPhone } from '../utils/formatters';
 import { FleetTrackerTab } from '../components/admin/FleetTrackerTab';
 import {
@@ -25,7 +25,24 @@ import {
   Key,
   Bike,
   Radio,
+  Image as ImageIcon,
+  Upload,
+  Sparkles,
+  Star,
+  Link2,
 } from 'lucide-react';
+
+const PRESET_SPIRIT_IMAGES = [
+  { label: 'Single Malt Whisky', url: '/src/assets/images/category_single_malt_1790229532902.jpg' },
+  { label: 'Craft Botanical Gin', url: '/src/assets/images/category_craft_gin_1790229549047.jpg' },
+  { label: 'Aged Caribbean Rum', url: '/src/assets/images/category_aged_rum_1790229559876.jpg' },
+  { label: 'Blue Agave Tequila', url: '/src/assets/images/category_tequila_agave_1790229571469.jpg' },
+  { label: 'Hero Reserve Spirits', url: '/src/assets/images/hero_barkwetu_whisky_1790229519485.jpg' },
+  { label: 'Premium Vodka Bottle', url: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Fine Wine / Cognac', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Champagne & Ice', url: 'https://images.unsplash.com/photo-1569919659476-f0852f6834b7?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Bourbon on the Rocks', url: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80' },
+];
 
 type AdminTab =
   | 'overview'
@@ -62,6 +79,8 @@ export const AdminDashboardView: React.FC = () => {
     adminUsers,
     createAdminAccount,
     deleteAdminAccount,
+    resetUserPasswordByAdmin,
+    changePassword,
     settings,
     updateSettings,
     auditLogs,
@@ -79,6 +98,8 @@ export const AdminDashboardView: React.FC = () => {
   // Product Form Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productImageUrlInput, setProductImageUrlInput] = useState('');
+  const productImageFileRef = useRef<HTMLInputElement>(null);
   const [productForm, setProductForm] = useState<{
     name: string;
     slug: string;
@@ -118,6 +139,8 @@ export const AdminDashboardView: React.FC = () => {
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryImageUrlInput, setCategoryImageUrlInput] = useState('');
+  const categoryImageFileRef = useRef<HTMLInputElement>(null);
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     slug: '',
@@ -140,15 +163,31 @@ export const AdminDashboardView: React.FC = () => {
     isActive: true,
   });
 
-  // New Admin Form State
-  const [newAdminForm, setNewAdminForm] = useState({
+  // New Admin / Rider Form State
+  const [newAdminForm, setNewAdminForm] = useState<{
+    fullName: string;
+    email: string;
+    username: string;
+    role: 'admin' | 'superadmin' | 'rider';
+    password?: string;
+    phone?: string;
+    bikeRegistration?: string;
+  }>({
     fullName: '',
     email: '',
     username: '',
-    role: 'admin' as 'admin' | 'superadmin',
+    role: 'admin',
+    password: 'admin123',
+    phone: '+254',
+    bikeRegistration: 'KMCE ',
   });
 
+  // Admin User Password Reset Modal State
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const [resetUserCustomPass, setResetUserCustomPass] = useState('');
+
   // Change Admin Password State
+  const [currentAdminPassword, setCurrentAdminPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -333,6 +372,98 @@ export const AdminDashboardView: React.FC = () => {
     setIsProductModalOpen(true);
   };
 
+  // Image Helpers for Product Management
+  const handleProductImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image file size must be less than 5MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setProductForm((prev) => ({
+          ...prev,
+          images: [result, ...prev.images.filter((img) => img !== result)],
+        }));
+        showToast('Image uploaded successfully from device!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset file input value so same file can be selected again if needed
+    if (e.target) e.target.value = '';
+  };
+
+  const handleAddProductImageUrl = () => {
+    if (!productImageUrlInput.trim()) return;
+    const clean = productImageUrlInput.trim();
+    setProductForm((prev) => ({
+      ...prev,
+      images: [clean, ...prev.images.filter((img) => img !== clean)],
+    }));
+    setProductImageUrlInput('');
+    showToast('Image URL added to spirit gallery.', 'success');
+  };
+
+  const handleSelectPresetProductImage = (url: string) => {
+    setProductForm((prev) => ({
+      ...prev,
+      images: [url, ...prev.images.filter((img) => img !== url)],
+    }));
+    showToast('Preset image selected.', 'info');
+  };
+
+  const handleRemoveProductImage = (indexToRemove: number) => {
+    setProductForm((prev) => {
+      const remaining = prev.images.filter((_, idx) => idx !== indexToRemove);
+      return {
+        ...prev,
+        images: remaining.length > 0 ? remaining : ['/src/assets/images/category_single_malt_1790229532902.jpg'],
+      };
+    });
+  };
+
+  const handleSetPrimaryProductImage = (indexToPrimary: number) => {
+    setProductForm((prev) => {
+      const item = prev.images[indexToPrimary];
+      const filtered = prev.images.filter((_, idx) => idx !== indexToPrimary);
+      return {
+        ...prev,
+        images: [item, ...filtered],
+      };
+    });
+    showToast('Primary cover image updated.', 'success');
+  };
+
+  // Image Helpers for Category Management
+  const handleCategoryImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image file size must be less than 5MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setCategoryForm((prev) => ({ ...prev, image: result }));
+        showToast('Category image uploaded!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleAddCategoryImageUrl = () => {
+    if (!categoryImageUrlInput.trim()) return;
+    setCategoryForm((prev) => ({ ...prev, image: categoryImageUrlInput.trim() }));
+    setCategoryImageUrlInput('');
+    showToast('Category image URL set.', 'success');
+  };
+
   // Handle Save Category
   const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -370,29 +501,56 @@ export const AdminDashboardView: React.FC = () => {
     });
   };
 
-  // Handle Create Admin
+  // Handle Create Admin / Rider
   const handleCreateAdmin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAdminForm.email || !newAdminForm.username || !newAdminForm.fullName) return;
     createAdminAccount(newAdminForm);
-    setNewAdminForm({ fullName: '', email: '', username: '', role: 'admin' });
+    setNewAdminForm({
+      fullName: '',
+      email: '',
+      username: '',
+      role: 'admin',
+      password: 'admin123',
+      phone: '+254',
+      bikeRegistration: 'KMCE ',
+    });
   };
 
-  // Handle Change Password
-  const handleChangePassword = (e: React.FormEvent) => {
+  // Handle Admin User Password Reset
+  const handleResetUserPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      showToast('Password must be at least 6 characters.', 'error');
+    if (!resettingUser) return;
+    const defaultPwd = resettingUser.role === 'rider' ? 'rider123' : 'admin123';
+    await resetUserPasswordByAdmin(resettingUser.id, resetUserCustomPass || defaultPwd);
+    setResettingUser(null);
+    setResetUserCustomPass('');
+  };
+
+  // Handle Change Super-Admin Master Password
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 4) {
+      showToast('Password must be at least 4 characters.', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
       showToast('Passwords do not match.', 'error');
       return;
     }
-    localStorage.setItem('barkwetu_admin_pwd', newPassword);
-    showToast('Admin password changed successfully.', 'success');
-    setNewPassword('');
-    setConfirmPassword('');
+    if (currentUser) {
+      const res = await changePassword(currentUser.id, currentAdminPassword, newPassword);
+      if (res.success) {
+        setCurrentAdminPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } else {
+      localStorage.setItem('barkwetu_admin_pwd', newPassword);
+      showToast('Admin password changed successfully.', 'success');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   return (
@@ -1099,7 +1257,7 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         )}
 
-        {/* ================= TAB: ADMIN ACCOUNTS ================= */}
+        {/* ================= TAB: ADMIN & RIDER ACCOUNTS ================= */}
         {activeTab === 'admins' && currentUser.role === 'superadmin' && (
           <div className="space-y-6">
             <div>
@@ -1107,47 +1265,71 @@ export const AdminDashboardView: React.FC = () => {
                 Admin Roles & Account Governance
               </h1>
               <p className="text-xs text-zinc-400 mt-1">
-                Manage operational staff and create new dispatch administrator accounts.
+                Manage operational staff, authorize delivery riders, and reset user passwords across Karatina operations.
               </p>
             </div>
 
-            {/* Create Admin Form */}
+            {/* Create Admin / Rider Form */}
             <div className="bg-[#121318] border border-zinc-800 rounded-2xl p-6">
-              <h3 className="font-serif text-lg font-bold text-white mb-4">Add New Administrator</h3>
-              <form onSubmit={handleCreateAdmin} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <h3 className="font-serif text-lg font-bold text-white mb-4">Add Staff or Rider Account</h3>
+              <form onSubmit={handleCreateAdmin} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">Full Name</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Full Name</label>
                   <input
                     type="text"
                     required
                     value={newAdminForm.fullName}
                     onChange={(e) => setNewAdminForm({ ...newAdminForm, fullName: e.target.value })}
                     placeholder="e.g. Victor Mutua"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">Email</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Email</label>
                   <input
                     type="email"
                     required
                     value={newAdminForm.email}
                     onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
                     placeholder="mutua@barkwetu.co.ke"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">Username</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Username</label>
                   <input
                     type="text"
                     required
                     value={newAdminForm.username}
                     onChange={(e) => setNewAdminForm({ ...newAdminForm, username: e.target.value })}
                     placeholder="vmutua"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Account Role</label>
+                  <select
+                    value={newAdminForm.role}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, role: e.target.value as any })}
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
+                  >
+                    <option value="admin">Store Admin / Dispatcher</option>
+                    <option value="rider">Express Delivery Rider</option>
+                    <option value="superadmin">Super Administrator</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Initial Password</label>
+                  <input
+                    type="text"
+                    value={newAdminForm.password}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                    placeholder={newAdminForm.role === 'rider' ? 'Default: rider123' : 'Default: admin123'}
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
 
@@ -1162,44 +1344,143 @@ export const AdminDashboardView: React.FC = () => {
               </form>
             </div>
 
-            {/* Admins Table */}
-            <div className="bg-[#121318] border border-zinc-800 rounded-2xl overflow-hidden">
+            {/* Admins & Riders Table */}
+            <div className="bg-[#121318] border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#0e0f14] border-b border-zinc-800 text-zinc-500 uppercase text-[10px]">
                   <tr>
-                    <th className="p-4">Admin Name</th>
+                    <th className="p-4">Staff / Rider Name</th>
                     <th className="p-4">Username</th>
-                    <th className="p-4">Email</th>
+                    <th className="p-4">Email / Contact</th>
                     <th className="p-4">Role</th>
-                    <th className="p-4 text-right">Action</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
                   {adminUsers.map((u) => (
                     <tr key={u.id} className="hover:bg-[#161822]">
-                      <td className="p-4 font-semibold text-white">{u.fullName}</td>
-                      <td className="p-4 font-mono text-zinc-300">{u.username}</td>
-                      <td className="p-4 text-zinc-400">{u.email}</td>
                       <td className="p-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30">
+                        <p className="font-semibold text-white">{u.fullName}</p>
+                        {u.bikeRegistration && (
+                          <p className="text-[11px] text-zinc-400 font-mono">Bike: {u.bikeRegistration}</p>
+                        )}
+                      </td>
+                      <td className="p-4 font-mono text-zinc-300">{u.username}</td>
+                      <td className="p-4 text-zinc-400">
+                        <p>{u.email}</p>
+                        {u.phone && <p className="text-[11px] text-zinc-500">{u.phone}</p>}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            u.role === 'superadmin'
+                              ? 'bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30'
+                              : u.role === 'rider'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                          }`}
+                        >
                           {u.role}
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        {u.role !== 'superadmin' && (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => deleteAdminAccount(u.id)}
-                            className="text-zinc-500 hover:text-rose-400 p-1 cursor-pointer"
+                            onClick={() => {
+                              setResettingUser(u);
+                              setResetUserCustomPass(u.password || (u.role === 'rider' ? 'rider123' : 'admin123'));
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-[#d4af37] hover:text-black text-zinc-300 text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
+                            title="Reset User Password"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Key className="w-3.5 h-3.5" />
+                            <span>Reset Pwd</span>
                           </button>
-                        )}
+
+                          {u.role !== 'superadmin' && (
+                            <button
+                              onClick={() => deleteAdminAccount(u.id)}
+                              className="text-zinc-500 hover:text-rose-400 p-1 cursor-pointer transition-colors"
+                              title="Delete Account"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Admin Reset Password Modal */}
+            {resettingUser && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-[#121318] border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                    <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                      <Key className="w-5 h-5 text-[#d4af37]" />
+                      <span>Admin Password Reset</span>
+                    </h3>
+                    <button
+                      onClick={() => setResettingUser(null)}
+                      className="text-zinc-500 hover:text-white cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="bg-[#090a0d] border border-zinc-800 rounded-xl p-3.5 space-y-1 text-xs">
+                    <p className="text-zinc-400">Target User: <strong className="text-white">{resettingUser.fullName}</strong></p>
+                    <p className="text-zinc-400">Role: <span className="text-[#d4af37] uppercase font-bold">{resettingUser.role}</span></p>
+                    <p className="text-zinc-400">Username: <span className="text-zinc-300 font-mono">{resettingUser.username}</span></p>
+                  </div>
+
+                  <form onSubmit={handleResetUserPasswordSubmit} className="space-y-4 text-xs">
+                    <div>
+                      <label className="block text-zinc-300 font-medium mb-1">
+                        New Password for {resettingUser.fullName}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={resetUserCustomPass}
+                        onChange={(e) => setResetUserCustomPass(e.target.value)}
+                        placeholder={resettingUser.role === 'rider' ? 'rider123' : 'admin123'}
+                        className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setResetUserCustomPass(resettingUser.role === 'rider' ? 'rider123' : 'admin123')}
+                        className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-mono cursor-pointer"
+                      >
+                        Set Default ({resettingUser.role === 'rider' ? 'rider123' : 'admin123'})
+                      </button>
+                    </div>
+
+                    <div className="flex gap-3 pt-3 border-t border-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => setResettingUser(null)}
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-[#d4af37] text-black font-bold hover:brightness-110 cursor-pointer"
+                      >
+                        Confirm Reset
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1427,154 +1708,359 @@ export const AdminDashboardView: React.FC = () => {
       {/* Product Form Modal */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-[#121318] border border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-2xl my-auto">
+          <div className="relative w-full max-w-3xl bg-[#121318] border border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsProductModalOpen(false)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-2"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-xl font-serif font-bold text-white mb-4">
-              {editingProductId ? 'Edit Spirit' : 'Add New Spirit to Catalog'}
-            </h3>
-
-            <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-zinc-300 font-medium mb-1">Spirit Name</label>
-                <input
-                  type="text"
-                  required
-                  value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                  placeholder="e.g. The Macallan 12 Double Cask"
-                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                />
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/10 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37]">
+                <Package className="w-5 h-5" />
               </div>
+              <div>
+                <h3 className="text-xl font-serif font-bold text-white">
+                  {editingProductId ? 'Edit Spirit Bottle' : 'Add New Spirit to Catalog'}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Manage bottle pricing, inventory stock, sommelier details, and product photography.
+                </p>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveProduct} className="space-y-6 text-xs">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#d4af37] flex items-center gap-1.5">
+                  <span>General Information</span>
+                </h4>
+
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Brand</label>
+                  <label className="block text-zinc-300 font-medium mb-1">Spirit Name *</label>
                   <input
                     type="text"
                     required
-                    value={productForm.brand}
-                    onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
-                    placeholder="e.g. Macallan"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
+                    value={productForm.name}
+                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                    placeholder="e.g. The Macallan 12 Year Old Double Cask"
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Distillery / Brand *</label>
+                    <input
+                      type="text"
+                      required
+                      value={productForm.brand}
+                      onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
+                      placeholder="e.g. Macallan"
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Category *</label>
+                    <select
+                      value={productForm.categoryId}
+                      onChange={(e) => {
+                        const catId = e.target.value;
+                        const cat = categories.find((c) => c.id === catId);
+                        setProductForm({
+                          ...productForm,
+                          categoryId: catId,
+                          categoryName: cat?.name || productForm.categoryName,
+                          spiritType: cat?.spiritType || productForm.spiritType,
+                        });
+                      }}
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#d4af37]"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pricing & Stock */}
+              <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#d4af37] flex items-center gap-1.5">
+                  <span>Pricing & Inventory</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Regular Price (KES) *</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={productForm.price}
+                      onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Sale Price (KES)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={productForm.salePrice || ''}
+                      onChange={(e) =>
+                        setProductForm({
+                          ...productForm,
+                          salePrice: e.target.value ? parseFloat(e.target.value) : undefined,
+                        })
+                      }
+                      placeholder="Optional discount price"
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Stock in Karatina Store *</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={productForm.stock}
+                      onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Imagery & Photo Management (User Request) */}
+              <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#d4af37] flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Product Images & Media</span>
+                  </h4>
+                  <span className="text-[11px] text-zinc-400">
+                    {productForm.images.length} {productForm.images.length === 1 ? 'image' : 'images'} attached
+                  </span>
+                </div>
+
+                {/* Primary Cover Preview */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#090a0d] p-4 rounded-xl border border-zinc-800">
+                  <div className="relative w-28 h-28 shrink-0 bg-zinc-900 rounded-lg overflow-hidden border border-zinc-700 shadow-inner flex items-center justify-center">
+                    {productForm.images[0] ? (
+                      <img
+                        src={productForm.images[0]}
+                        alt="Primary Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-zinc-600" />
+                    )}
+                    <span className="absolute bottom-1 left-1 bg-[#d4af37] text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                      Cover Photo
+                    </span>
+                  </div>
+
+                  <div className="flex-1 space-y-2 w-full">
+                    <p className="text-xs font-semibold text-white">Add or Upload Product Images</p>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Upload photos directly from your device, enter external web URLs, or choose from our luxury curated bottle photography library.
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {/* Hidden File Input */}
+                      <input
+                        type="file"
+                        ref={productImageFileRef}
+                        onChange={handleProductImageFileUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => productImageFileRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs border border-zinc-700 transition-colors cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-[#d4af37]" />
+                        <span>Upload From Device</span>
+                      </button>
+
+                      <div className="flex-1 flex gap-1 min-w-[200px]">
+                        <input
+                          type="url"
+                          value={productImageUrlInput}
+                          onChange={(e) => setProductImageUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddProductImageUrl();
+                            }
+                          }}
+                          placeholder="Paste image URL (https://...)"
+                          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddProductImageUrl}
+                          className="px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold cursor-pointer border border-zinc-700"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Presets Gallery */}
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Category</label>
-                  <select
-                    value={productForm.categoryId}
-                    onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                  <label className="block text-[11px] font-medium text-zinc-400 mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-[#d4af37]" />
+                    <span>Quick Select Curated Luxury Presets:</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_SPIRIT_IMAGES.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectPresetProductImage(preset.url)}
+                        className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-[#d4af37]/10 hover:border-[#d4af37]/50 border border-zinc-800 text-zinc-300 text-[11px] transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <img src={preset.url} alt="" className="w-3.5 h-3.5 rounded object-cover" />
+                        <span>{preset.label}</span>
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                </div>
+
+                {/* Image Gallery List */}
+                {productForm.images.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-medium text-zinc-400">
+                      Attached Images ({productForm.images.length}):
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {productForm.images.map((imgUrl, index) => (
+                        <div
+                          key={index}
+                          className={`relative group rounded-xl overflow-hidden border p-1.5 bg-[#090a0d] flex flex-col justify-between ${
+                            index === 0 ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-zinc-800'
+                          }`}
+                        >
+                          <div className="relative w-full h-24 bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center">
+                            <img
+                              src={imgUrl}
+                              alt={`Product image ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {index === 0 && (
+                              <span className="absolute top-1 left-1 bg-[#d4af37] text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                                Cover
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-zinc-800/60">
+                            {index > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryProductImage(index)}
+                                className="text-[10px] text-zinc-400 hover:text-[#d4af37] font-medium flex items-center gap-1 cursor-pointer"
+                              >
+                                <Star className="w-3 h-3" />
+                                <span>Set Cover</span>
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-[#d4af37] font-bold flex items-center gap-0.5">
+                                <Star className="w-3 h-3 fill-current" />
+                                <span>Main</span>
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductImage(index)}
+                              className="text-zinc-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                              title="Delete image"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Technical Bottle Specifications */}
+              <div className="space-y-4 pt-4 border-t border-zinc-800/60">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#d4af37] flex items-center gap-1.5">
+                  <span>Sommelier & Bottle Details</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Bottle Volume</label>
+                    <input
+                      type="text"
+                      value={productForm.volume}
+                      onChange={(e) => setProductForm({ ...productForm, volume: e.target.value })}
+                      placeholder="750ml"
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">ABV Strength</label>
+                    <input
+                      type="text"
+                      value={productForm.abv}
+                      onChange={(e) => setProductForm({ ...productForm, abv: e.target.value })}
+                      placeholder="40.0% / 43.0%"
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-medium mb-1">Country of Origin</label>
+                    <input
+                      type="text"
+                      value={productForm.origin}
+                      onChange={(e) => setProductForm({ ...productForm, origin: e.target.value })}
+                      placeholder="Speyside, Scotland"
+                      className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-zinc-300 font-medium mb-1">Description & Tasting Notes</label>
+                  <textarea
+                    rows={3}
+                    value={productForm.description}
+                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                    placeholder="Rich dried fruits, candied orange peel, oak spice and smooth lingering sherry warmth..."
+                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#d4af37]"
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Price (KES)</label>
-                  <input
-                    type="number"
-                    required
-                    value={productForm.price}
-                    onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Sale Price (Optional)</label>
-                  <input
-                    type="number"
-                    value={productForm.salePrice || ''}
-                    onChange={(e) =>
-                      setProductForm({
-                        ...productForm,
-                        salePrice: e.target.value ? parseFloat(e.target.value) : undefined,
-                      })
-                    }
-                    placeholder="Leave blank if no sale"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Stock Quantity</label>
-                  <input
-                    type="number"
-                    required
-                    value={productForm.stock}
-                    onChange={(e) => setProductForm({ ...productForm, stock: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Bottle Size</label>
-                  <input
-                    type="text"
-                    value={productForm.volume}
-                    onChange={(e) => setProductForm({ ...productForm, volume: e.target.value })}
-                    placeholder="750ml"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">ABV (%)</label>
-                  <input
-                    type="text"
-                    value={productForm.abv}
-                    onChange={(e) => setProductForm({ ...productForm, abv: e.target.value })}
-                    placeholder="40.0%"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Origin Country</label>
-                  <input
-                    type="text"
-                    value={productForm.origin}
-                    onChange={(e) => setProductForm({ ...productForm, origin: e.target.value })}
-                    placeholder="Speyside, Scotland"
-                    className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-zinc-300 font-medium mb-1">Description & Sommelier Notes</label>
-                <textarea
-                  rows={3}
-                  value={productForm.description}
-                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
-                />
-              </div>
-
-              <div className="flex gap-4 pt-2">
+              {/* Status Flags */}
+              <div className="flex flex-wrap gap-6 pt-2">
                 <label className="flex items-center gap-2 cursor-pointer text-zinc-300">
                   <input
                     type="checkbox"
                     checked={productForm.isFeatured}
                     onChange={(e) => setProductForm({ ...productForm, isFeatured: e.target.checked })}
-                    className="rounded bg-zinc-800 border-zinc-700 text-[#d4af37]"
+                    className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-[#d4af37] focus:ring-[#d4af37]"
                   />
-                  <span>Feature on Storefront</span>
+                  <span className="text-xs font-medium">Feature on Karatina Storefront Homepage</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer text-zinc-300">
@@ -1582,25 +2068,25 @@ export const AdminDashboardView: React.FC = () => {
                     type="checkbox"
                     checked={productForm.isActive}
                     onChange={(e) => setProductForm({ ...productForm, isActive: e.target.checked })}
-                    className="rounded bg-zinc-800 border-zinc-700 text-[#d4af37]"
+                    className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-[#d4af37] focus:ring-[#d4af37]"
                   />
-                  <span>Active for Purchase</span>
+                  <span className="text-xs font-medium">Active & Available for Ordering</span>
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex gap-3 pt-6 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsProductModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold"
+                  className="flex-1 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#d4af37] text-black font-semibold hover:brightness-110"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-bold hover:brightness-110 transition-all cursor-pointer shadow-lg shadow-[#d4af37]/20"
                 >
-                  Save Spirit
+                  {editingProductId ? 'Save Spirit Changes' : 'Add Spirit to Store'}
                 </button>
               </div>
             </form>
@@ -1610,8 +2096,8 @@ export const AdminDashboardView: React.FC = () => {
 
       {/* Category Modal */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#121318] border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="relative w-full max-w-md bg-[#121318] border border-zinc-800 rounded-2xl p-6 shadow-2xl my-auto">
             <button
               onClick={() => setIsCategoryModalOpen(false)}
               className="absolute top-4 right-4 text-zinc-400 hover:text-white"
@@ -1624,14 +2110,14 @@ export const AdminDashboardView: React.FC = () => {
 
             <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
               <div>
-                <label className="block text-zinc-300 font-medium mb-1">Category Name</label>
+                <label className="block text-zinc-300 font-medium mb-1">Category Name *</label>
                 <input
                   type="text"
                   required
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
                   placeholder="e.g. Single Malt Scotch"
-                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
+                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
                 />
               </div>
 
@@ -1642,8 +2128,53 @@ export const AdminDashboardView: React.FC = () => {
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
                   placeholder="Brief summary"
-                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white"
+                  className="w-full bg-[#090a0d] border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#d4af37]"
                 />
+              </div>
+
+              {/* Category Image Management */}
+              <div>
+                <label className="block text-zinc-300 font-medium mb-1">Category Banner Image</label>
+                <div className="flex items-center gap-3 mb-2">
+                  <img
+                    src={categoryForm.image}
+                    alt="Category banner"
+                    className="w-16 h-16 rounded-lg object-cover border border-zinc-700 shrink-0"
+                  />
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="file"
+                      ref={categoryImageFileRef}
+                      onChange={handleCategoryImageFileUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => categoryImageFileRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs border border-zinc-700 cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#d4af37]" />
+                      <span>Upload File</span>
+                    </button>
+                    <div className="flex gap-1">
+                      <input
+                        type="url"
+                        value={categoryImageUrlInput}
+                        onChange={(e) => setCategoryImageUrlInput(e.target.value)}
+                        placeholder="Or paste URL"
+                        className="flex-1 bg-[#090a0d] border border-zinc-800 rounded px-2 py-1 text-[11px] text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCategoryImageUrl}
+                        className="px-2 py-1 bg-zinc-800 text-white rounded text-[11px]"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-3">
