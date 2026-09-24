@@ -1,0 +1,7 @@
+{
+  "name": "BarKwetu - Premium Kenyan Liquor & Spirits Store",
+  "description": "Premium alcohol and spirits ecommerce store for Kenya with 18+ verification, M-Pesa PalPluss payments, real-time delivery tracking, and administrative control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
