@@ -109,6 +109,9 @@ export const StorefrontView: React.FC = () => {
             <img
               src={HERO_IMAGE}
               alt="BarKwetu Reserve Collection"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover object-center brightness-75 scale-105 transition-transform duration-10000"
             />
@@ -212,7 +215,13 @@ export const StorefrontView: React.FC = () => {
               >
                 {/* Background image tint */}
                 <div className="absolute inset-0 z-0 opacity-25 group-hover:opacity-40 transition-opacity">
-                  <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                  <img
+                    src={cat.image}
+                    alt={cat.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#090a0d] via-[#090a0d]/60 to-transparent" />
                 </div>
 

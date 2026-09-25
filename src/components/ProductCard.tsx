@@ -63,6 +63,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <img
             src={product.images[0]}
             alt={product.name}
+            loading="lazy"
+            decoding="async"
             onError={() => setImageError(true)}
             referrerPolicy="no-referrer"
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"

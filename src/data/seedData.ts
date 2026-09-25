@@ -1,10 +1,10 @@
 import { Category, Product, PromoCode, SiteSettings, User, Order, ProductReview } from '../types';
 
-export const HERO_IMAGE = '/assets/images/hero_barkwetu_whisky_1790229519485.jpg';
-export const WHISKY_IMAGE = '/assets/images/category_single_malt_1790229532902.jpg';
-export const GIN_IMAGE = '/assets/images/category_craft_gin_1790229549047.jpg';
-export const RUM_IMAGE = '/assets/images/category_aged_rum_1790229559876.jpg';
-export const TEQUILA_IMAGE = '/assets/images/category_tequila_agave_1790229571469.jpg';
+export const HERO_IMAGE = 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=1600&q=85';
+export const WHISKY_IMAGE = 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=800&q=80';
+export const GIN_IMAGE = 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=800&q=80';
+export const RUM_IMAGE = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80';
+export const TEQUILA_IMAGE = 'https://images.unsplash.com/photo-1569919659476-f0852f6834b7?auto=format&fit=crop&w=800&q=80';
 
 export const INITIAL_CATEGORIES: Category[] = [
   {

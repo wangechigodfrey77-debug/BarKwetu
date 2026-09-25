@@ -124,6 +124,8 @@ export const ProductQuickViewModal: React.FC = () => {
                 <img
                   src={product.images[activeImageIndex]}
                   alt={product.name}
+                  loading="eager"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-contain"
                 />
@@ -154,7 +156,7 @@ export const ProductQuickViewModal: React.FC = () => {
                         : 'border-zinc-800 opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={img} alt="thumbnail" className="w-full h-full object-contain" />
+                    <img src={img} alt="thumbnail" loading="lazy" decoding="async" className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
@@ -640,7 +642,7 @@ export const ProductQuickViewModal: React.FC = () => {
                   className="bg-[#14161d] border border-zinc-800/60 hover:border-[#d4af37]/40 p-2.5 rounded-lg flex items-center gap-3 cursor-pointer transition-colors"
                 >
                   <div className="w-10 h-10 bg-[#0a0b0e] rounded p-1 flex items-center justify-center shrink-0">
-                    <img src={rel.images[0]} alt={rel.name} className="max-h-full max-w-full object-contain" />
+                    <img src={rel.images[0]} alt={rel.name} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-zinc-200 font-medium truncate">{rel.name}</p>

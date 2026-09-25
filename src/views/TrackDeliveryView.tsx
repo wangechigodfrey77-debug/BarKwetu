@@ -314,7 +314,13 @@ export const TrackDeliveryView: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-[#161821] rounded p-1 flex items-center justify-center shrink-0">
-                        <img src={item.image} alt={item.productName} className="max-h-full max-w-full object-contain" />
+                        <img
+                          src={item.image}
+                          alt={item.productName}
+                          loading="lazy"
+                          decoding="async"
+                          className="max-h-full max-w-full object-contain"
+                        />
                       </div>
                       <div>
                         <p className="font-semibold text-white">{item.productName}</p>

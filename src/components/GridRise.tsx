@@ -76,7 +76,7 @@ export const GridRise: React.FC<GridRiseProps> = ({
 
     // Fragment Shader: Raymarched Grid Elevation & Tile Field
     const fsSource = `
-      precision highp float;
+      precision mediump float;
       uniform vec2 u_resolution;
       uniform float u_time;
       uniform vec2 u_mouse;
@@ -289,7 +289,7 @@ export const GridRise: React.FC<GridRiseProps> = ({
     let currentMouse = { x: 0, y: 0 };
 
     const handleResize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
       const width = canvas.parentElement ? canvas.parentElement.clientWidth : window.innerWidth;
       const height = canvas.parentElement ? canvas.parentElement.clientHeight : window.innerHeight;
 

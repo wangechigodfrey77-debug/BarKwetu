@@ -428,6 +428,8 @@ export const CheckoutView: React.FC = () => {
                           <img
                             src={item.product.images[0]}
                             alt={item.product.name}
+                            loading="lazy"
+                            decoding="async"
                             className="max-h-full max-w-full object-contain"
                           />
                         </div>
