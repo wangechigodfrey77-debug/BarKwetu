@@ -2,6 +2,7 @@ import React from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { AgeGateModal } from './components/AgeGateModal';
 import { ProductQuickViewModal } from './components/ProductQuickViewModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -21,7 +22,7 @@ const MainLayout: React.FC = () => {
   const { activeView } = useStore();
 
   return (
-    <div className="min-h-screen bg-[#090a0d] text-zinc-100 flex flex-col font-sans selection:bg-[#d4af37] selection:text-black relative">
+    <div className="min-h-screen bg-[#090a0d] text-zinc-100 flex flex-col font-sans selection:bg-[#d4af37] selection:text-black relative pb-16 md:pb-0">
       {/* Raymarched Grid Rise Ambient Background */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-40">
         <GridRise />
@@ -47,6 +48,9 @@ const MainLayout: React.FC = () => {
 
         {/* Global Footer (Trust badges, legal disclaimers) */}
         {activeView !== 'admin' && <Footer />}
+
+        {/* Mobile Bottom Navigation Bar */}
+        {activeView !== 'admin' && <MobileBottomNav />}
 
         {/* Global Slide-outs and Modals */}
         <ProductQuickViewModal />

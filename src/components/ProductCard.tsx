@@ -9,7 +9,14 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { addToCart, setSelectedProductId, getProductRatingStats } = useStore();
+  const {
+    addToCart,
+    setSelectedProductId,
+    getProductRatingStats,
+    setActiveView,
+    currentUser,
+    openAuthModal,
+  } = useStore();
   const [imageError, setImageError] = useState(false);
 
   const stats = getProductRatingStats(product.id);
@@ -19,6 +26,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isOutOfStock = product.stock <= 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const hasSale = product.salePrice && product.salePrice < product.price;
+
+  const handleImageClick = () => {
+    if (isOutOfStock) return;
+    addToCart(product, 1);
+    if (!currentUser) {
+      openAuthModal('signin', 'checkout');
+    } else {
+      setActiveView('checkout');
+    }
+  };
 
   return (
     <div className="group relative bg-[#121318] border border-zinc-800/70 hover:border-[#d4af37]/40 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/60 flex flex-col justify-between">
@@ -38,8 +55,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
       {/* Image Container */}
       <div
-        onClick={() => setSelectedProductId(product.id)}
-        className="relative w-full aspect-square bg-[#0c0d11] overflow-hidden cursor-pointer flex items-center justify-center p-4"
+        onClick={handleImageClick}
+        title="Click to Order"
+        className="relative w-full aspect-square bg-[#0c0d11] overflow-hidden cursor-pointer flex items-center justify-center p-4 group/img"
       >
         {!imageError && product.images[0] ? (
           <img

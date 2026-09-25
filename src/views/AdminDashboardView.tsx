@@ -36,11 +36,11 @@ import {
 } from 'lucide-react';
 
 const PRESET_SPIRIT_IMAGES = [
-  { label: 'Single Malt Whisky', url: '/src/assets/images/category_single_malt_1790229532902.jpg' },
-  { label: 'Craft Botanical Gin', url: '/src/assets/images/category_craft_gin_1790229549047.jpg' },
-  { label: 'Aged Caribbean Rum', url: '/src/assets/images/category_aged_rum_1790229559876.jpg' },
-  { label: 'Blue Agave Tequila', url: '/src/assets/images/category_tequila_agave_1790229571469.jpg' },
-  { label: 'Hero Reserve Spirits', url: '/src/assets/images/hero_barkwetu_whisky_1790229519485.jpg' },
+  { label: 'Single Malt Whisky', url: '/assets/images/category_single_malt_1790229532902.jpg' },
+  { label: 'Craft Botanical Gin', url: '/assets/images/category_craft_gin_1790229549047.jpg' },
+  { label: 'Aged Caribbean Rum', url: '/assets/images/category_aged_rum_1790229559876.jpg' },
+  { label: 'Blue Agave Tequila', url: '/assets/images/category_tequila_agave_1790229571469.jpg' },
+  { label: 'Hero Reserve Spirits', url: '/assets/images/hero_barkwetu_whisky_1790229519485.jpg' },
   { label: 'Premium Vodka Bottle', url: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=800&q=80' },
   { label: 'Fine Wine / Cognac', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=800&q=80' },
   { label: 'Champagne & Ice', url: 'https://images.unsplash.com/photo-1569919659476-f0852f6834b7?auto=format&fit=crop&w=800&q=80' },
@@ -140,7 +140,7 @@ export const AdminDashboardView: React.FC = () => {
     volume: '750ml',
     description: '',
     origin: 'Scotland',
-    images: ['/src/assets/images/category_single_malt_1790229532902.jpg'],
+    images: ['/assets/images/category_single_malt_1790229532902.jpg'],
     isFeatured: false,
     isActive: true,
   });
@@ -154,7 +154,7 @@ export const AdminDashboardView: React.FC = () => {
     name: '',
     slug: '',
     description: '',
-    image: '/src/assets/images/category_craft_gin_1790229549047.jpg',
+    image: '/assets/images/category_craft_gin_1790229549047.jpg',
     spiritType: 'gin' as any,
     displayOrder: 1,
     isActive: true,
@@ -429,7 +429,7 @@ export const AdminDashboardView: React.FC = () => {
       const remaining = prev.images.filter((_, idx) => idx !== indexToRemove);
       return {
         ...prev,
-        images: remaining.length > 0 ? remaining : ['/src/assets/images/category_single_malt_1790229532902.jpg'],
+        images: remaining.length > 0 ? remaining : ['/assets/images/category_single_malt_1790229532902.jpg'],
       };
     });
   };
@@ -986,7 +986,7 @@ export const AdminDashboardView: React.FC = () => {
                     volume: '750ml',
                     description: '',
                     origin: 'Scotland',
-                    images: ['/src/assets/images/category_single_malt_1790229532902.jpg'],
+                    images: ['/assets/images/category_single_malt_1790229532902.jpg'],
                     isFeatured: false,
                     isActive: true,
                   });
@@ -1129,7 +1129,7 @@ export const AdminDashboardView: React.FC = () => {
                     name: '',
                     slug: '',
                     description: '',
-                    image: '/src/assets/images/category_craft_gin_1790229549047.jpg',
+                    image: '/assets/images/category_craft_gin_1790229549047.jpg',
                     spiritType: 'whisky',
                     displayOrder: categories.length + 1,
                     isActive: true,
