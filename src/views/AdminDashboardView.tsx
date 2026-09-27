@@ -27,7 +27,6 @@ import {
   Radio,
   Image as ImageIcon,
   Upload,
-  Sparkles,
   Star,
   Link2,
   Volume2,
@@ -2149,7 +2148,7 @@ export const AdminDashboardView: React.FC = () => {
                 {/* Quick Presets Gallery */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-400 mb-1.5 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-[#d4af37]" />
+                    <ImageIcon className="w-3 h-3 text-[#d4af37]" />
                     <span>Quick Select Curated Luxury Presets:</span>
                   </label>
                   <div className="flex flex-wrap gap-1.5">

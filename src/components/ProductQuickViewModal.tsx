@@ -10,7 +10,7 @@ import {
   Truck,
   ShieldCheck,
   Check,
-  Sparkles,
+  BookOpen,
   MapPin,
   Star,
   MessageSquare,
@@ -379,7 +379,7 @@ export const ProductQuickViewModal: React.FC = () => {
               {product.tastingNotes && (
                 <div className="bg-[#15171f] border border-zinc-800/80 rounded-xl p-4 mb-6">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-[#d4af37] uppercase tracking-wider mb-2.5">
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <BookOpen className="w-3.5 h-3.5" />
                     <span>Sommelier Tasting Notes</span>
                   </div>
                   <div className="space-y-2 text-xs text-zinc-300">
@@ -525,7 +525,7 @@ export const ProductQuickViewModal: React.FC = () => {
                 <form onSubmit={handleSubmitReview} className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-[#d4af37]" />
+                      <UserCheck className="w-4 h-4 text-[#d4af37]" />
                       <span>Review as {currentUser.fullName || currentUser.username}</span>
                     </h4>
                     <span className="text-[11px] text-zinc-400">

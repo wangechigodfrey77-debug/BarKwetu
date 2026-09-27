@@ -3,7 +3,7 @@ import { useStore } from '../context/StoreContext';
 import { ProductCard } from '../components/ProductCard';
 import { FloatingProductBanner } from '../components/FloatingProductBanner';
 import { HERO_IMAGE } from '../data/seedData';
-import { Search, SlidersHorizontal, ArrowRight, Sparkles, Wine, ShieldCheck, Truck, Clock } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowRight, Wine, ShieldCheck, Truck, Clock, Award } from 'lucide-react';
 
 export const StorefrontView: React.FC = () => {
   const {
@@ -102,9 +102,9 @@ export const StorefrontView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#090a0d] pb-24">
-      {/* 1. HERO CAMPAIGN BANNER (Diageo thebar.com Style) */}
+      {/* 1. HERO CAMPAIGN BANNER (Compact & Elegant Layout) */}
       {!selectedCategorySlug && !searchQuery && (
-        <section className="relative w-full min-h-[520px] lg:min-h-[580px] bg-[#0c0d12] overflow-hidden flex items-center border-b border-zinc-800/80">
+        <section className="relative w-full bg-[#0c0d12] overflow-hidden border-b border-zinc-800/80">
           {/* Background Photography with Scrim */}
           <div className="absolute inset-0 z-0">
             <img
@@ -117,33 +117,33 @@ export const StorefrontView: React.FC = () => {
               className="w-full h-full object-cover object-center brightness-75 scale-105 transition-transform duration-10000"
             />
             {/* Measured Gradient Scrim for WCAG AA readability */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-black/40" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/85 to-black/50" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#090a0d] via-transparent to-black/50" />
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#d4af37] text-xs font-semibold uppercase tracking-[0.2em] mb-4 backdrop-blur-md">
-                <Sparkles className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#d4af37] text-[11px] font-semibold uppercase tracking-[0.18em] mb-2.5 backdrop-blur-md">
+                <Award className="w-3.5 h-3.5" />
                 <span>The Reserve Spirits of Kenya</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight leading-[1.08] text-balance mb-6">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-white tracking-tight leading-[1.15] text-balance mb-2.5">
                 Exceptional Single Malts & Rare Botanicals.
               </h1>
 
-              <p className="text-base sm:text-lg text-zinc-300 font-light leading-relaxed mb-8 max-w-xl">
-                Curated duty-paid Scotch whiskies, artisanal gins, and aged tequilas delivered cold to your doorstep across Karatina Town & Mathira within 30–45 minutes for a fixed fee of KSh 100.
+              <p className="text-xs sm:text-sm text-zinc-300 font-light leading-relaxed mb-4 max-w-xl">
+                Curated duty-paid Scotch whiskies, artisanal gins, and aged tequilas delivered cold across Karatina Town & Mathira within 30–45 mins (KSh 100 flat fee).
               </p>
 
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => {
                     const catalogEl = document.getElementById('spirits-catalog');
                     catalogEl?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="py-3.5 px-8 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-sm hover:brightness-110 active:scale-98 transition-all flex items-center gap-2 shadow-xl shadow-[#d4af37]/25 cursor-pointer"
+                  className="py-2.5 px-5 sm:px-6 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-xs sm:text-sm hover:brightness-110 active:scale-98 transition-all flex items-center gap-1.5 shadow-lg shadow-[#d4af37]/20 cursor-pointer"
                 >
                   <span>Explore Reserve Catalog</span>
                   <ArrowRight className="w-4 h-4 stroke-[2.5]" />
@@ -151,27 +151,27 @@ export const StorefrontView: React.FC = () => {
 
                 <button
                   onClick={() => setActiveView('track-order')}
-                  className="py-3.5 px-6 rounded-xl bg-black/60 hover:bg-black/90 text-white font-medium text-sm border border-zinc-700 hover:border-zinc-500 backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer"
+                  className="py-2.5 px-4 sm:px-5 rounded-xl bg-black/60 hover:bg-black/90 text-white font-medium text-xs sm:text-sm border border-zinc-700 hover:border-zinc-500 backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Truck className="w-4 h-4 text-[#d4af37]" />
                   <span>Track Live Order</span>
                 </button>
-              </div>
 
-              {/* Quick Trust Ticker */}
-              <div className="mt-10 pt-6 border-t border-zinc-800/80 flex flex-wrap items-center gap-6 text-xs text-zinc-400">
-                <span className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-[#d4af37]" />
-                  Fixed KSh 100 Delivery
-                </span>
-                <span className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#d4af37]" />
-                  30–45 Mins Karatina Express
-                </span>
-                <span className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#d4af37]" />
-                  PalPluss STK Push Secure
-                </span>
+                {/* Inline Trust Badges */}
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-400 pl-1 sm:pl-2">
+                  <span className="flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5 text-[#d4af37]" />
+                    KSh 100 Delivery
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#d4af37]" />
+                    30–45 Mins
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37]" />
+                    STK Push Secure
+                  </span>
+                </div>
               </div>
             </div>
           </div>

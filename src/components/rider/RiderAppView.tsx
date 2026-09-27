@@ -25,7 +25,6 @@ import {
   EyeOff,
   UserCheck,
   ShieldAlert,
-  Sparkles,
   ArrowRight,
   Check,
   X,
@@ -477,7 +476,7 @@ export const RiderAppView: React.FC = () => {
               }}
               className="text-xs text-[#d4af37] hover:underline flex items-center justify-center gap-1 mx-auto cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Key className="w-3.5 h-3.5" />
               <span>Fill Default Rider (rider / rider123)</span>
             </button>
 

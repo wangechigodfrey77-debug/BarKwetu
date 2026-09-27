@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
-import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike, ShoppingBag, Sparkles, Coins, Gift } from 'lucide-react';
+import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike, ShoppingBag, Coins, Gift } from 'lucide-react';
 import { formatKES } from '../utils/formatters';
 
 export const AuthModal: React.FC = () => {

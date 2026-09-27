@@ -6,7 +6,6 @@ import { KENYA_COUNTIES } from '../data/kenyaLocations';
 import {
   X,
   Coins,
-  Sparkles,
   Gift,
   Truck,
   Ticket,
@@ -130,8 +129,8 @@ export const CustomerProfileModal: React.FC = () => {
         return <Truck className="w-5 h-5 text-emerald-400" />;
       case 'Gift':
         return <Gift className="w-5 h-5 text-amber-400" />;
-      case 'Sparkles':
-        return <Sparkles className="w-5 h-5 text-[#d4af37]" />;
+      case 'Award':
+        return <Award className="w-5 h-5 text-[#d4af37]" />;
       case 'Crown':
         return <Crown className="w-5 h-5 text-purple-400" />;
       case 'Ticket':

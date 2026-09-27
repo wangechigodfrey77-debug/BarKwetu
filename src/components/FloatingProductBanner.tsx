@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Eye,
   ShoppingBag,
-  Sparkles,
   Wine,
   Flame,
   ArrowUpRight,
@@ -77,7 +76,7 @@ export const FloatingProductBanner: React.FC = () => {
   if (activeProducts.length === 0) return null;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 -mt-6 sm:-mt-8 mb-4">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 -mt-3 sm:-mt-5 mb-4">
       {/* Floating Glassmorphic Container */}
       <div
         onMouseEnter={() => setIsHovered(true)}
@@ -92,7 +91,7 @@ export const FloatingProductBanner: React.FC = () => {
         <div className="flex items-center justify-between gap-3 mb-3.5 pb-2.5 border-b border-zinc-800/80">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#d4af37]/20 to-amber-900/30 border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37] shrink-0">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Wine className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins, Sparkles } from 'lucide-react';
+import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const {

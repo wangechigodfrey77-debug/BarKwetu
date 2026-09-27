@@ -43,7 +43,7 @@ export const LOYALTY_REWARDS: LoyaltyReward[] = [
     discountValue: 500,
     minSpend: 4500,
     badge: 'Save 50 Coins',
-    iconName: 'Sparkles',
+    iconName: 'Award',
   },
   {
     id: 'reward-1000kes',
