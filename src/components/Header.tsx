@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins } from 'lucide-react';
+import { TopNotificationBar } from './TopNotificationBar';
 
 export const Header: React.FC = () => {
   const {
@@ -19,15 +20,9 @@ export const Header: React.FC = () => {
   const userCoins = currentUser?.kwetuCoins ?? 0;
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0d0e12]/90 backdrop-blur-md border-b border-zinc-800/80">
-      {/* Top micro delivery banner */}
-      <div className="w-full bg-[#14151b] border-b border-zinc-800/40 py-1 px-4 text-center text-xs text-zinc-300">
-        <span className="text-[#d4af37] font-medium">⚡ Same-Day Nairobi Express Delivery</span>
-        <span className="mx-2 text-zinc-600">·</span>
-        <span>Fixed KSh 100 on all orders</span>
-        <span className="mx-2 text-zinc-600">·</span>
-        <span className="text-zinc-400">Strictly 18+</span>
-      </div>
+    <header className="sticky top-0 z-40 w-full bg-[#0d0e12]/95 backdrop-blur-md border-b border-zinc-800/80">
+      {/* High-Visibility Persistent Top Notification Bar */}
+      <TopNotificationBar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Single text element Brand Zone */}

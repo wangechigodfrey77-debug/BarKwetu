@@ -4,6 +4,7 @@ import { ProductCard } from '../components/ProductCard';
 import { FloatingProductBanner } from '../components/FloatingProductBanner';
 import { HERO_IMAGE } from '../data/seedData';
 import { Search, SlidersHorizontal, ArrowRight, Wine, ShieldCheck, Truck, Clock, Award } from 'lucide-react';
+import { Orb } from '../components/Orb';
 
 export const StorefrontView: React.FC = () => {
   const {
@@ -122,7 +123,7 @@ export const StorefrontView: React.FC = () => {
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 flex items-center justify-between gap-6">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#d4af37] text-[11px] font-semibold uppercase tracking-[0.18em] mb-2.5 backdrop-blur-md">
                 <Award className="w-3.5 h-3.5" />
@@ -174,6 +175,19 @@ export const StorefrontView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Ambient Interactive WebGL Orb */}
+            <div className="hidden lg:block relative w-48 h-48 xl:w-56 xl:h-56 shrink-0 pointer-events-auto">
+              <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
+                <Orb
+                  hue={35}
+                  hoverIntensity={0.45}
+                  rotateOnHover={true}
+                  forceHoverState={false}
+                  backgroundColor="#000000"
+                />
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -181,69 +195,76 @@ export const StorefrontView: React.FC = () => {
       {/* 1.5. FLOATING ALL-PRODUCTS SHOWCASE BANNER */}
       <FloatingProductBanner />
 
-      {/* 2. CATEGORIES HORIZONTAL GRID */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-              Curated by Spirit Type
-            </h2>
-            <p className="text-xs text-zinc-400 mt-1">Explore authentic spirits by master blenders and distillers</p>
-          </div>
-          {selectedCategorySlug && (
-            <button
-              onClick={() => setSelectedCategorySlug(null)}
-              className="text-xs text-[#d4af37] hover:underline font-semibold cursor-pointer"
-            >
-              View All Categories
-            </button>
-          )}
-        </div>
+      {/* 2. CATEGORIES SHOWCASE GRID (High Contrast & Luminous Luxury Cards) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="relative bg-gradient-to-b from-[#141622]/95 via-[#10121a]/95 to-[#0b0c11]/95 border border-zinc-800/90 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-md overflow-hidden">
+          {/* Subtle Ambient Radial Glow */}
+          <div className="absolute -top-16 right-1/4 w-80 h-40 bg-[#d4af37]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 left-1/4 w-80 h-40 bg-amber-700/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-          {categories.filter((c) => c.isActive).map((cat) => {
-            const isSelected = selectedCategorySlug === cat.slug;
-            return (
+          {/* Section Header */}
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-zinc-800/80">
+            <div>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-white tracking-tight">
+                Curated by Spirit Type
+              </h2>
+              <p className="text-xs text-zinc-300 mt-1">Explore authentic duty-paid spirits crafted by master distillers</p>
+            </div>
+            {selectedCategorySlug && (
               <button
-                key={cat.id}
-                onClick={() => {
-                  setSelectedCategorySlug(isSelected ? null : cat.slug);
-                  const catalogEl = document.getElementById('spirits-catalog');
-                  catalogEl?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className={`relative p-4 rounded-xl border text-left flex flex-col justify-between overflow-hidden transition-all duration-300 group cursor-pointer aspect-[4/3] ${
-                  isSelected
-                    ? 'bg-[#1e1f29] border-[#d4af37] ring-1 ring-[#d4af37]'
-                    : 'bg-[#121319] border-zinc-800/80 hover:border-[#d4af37]/50 hover:bg-[#161722]'
-                }`}
+                onClick={() => setSelectedCategorySlug(null)}
+                className="self-start sm:self-center px-3.5 py-1.5 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/50 text-xs text-[#d4af37] hover:bg-[#d4af37] hover:text-black font-semibold transition-all cursor-pointer shadow-sm"
               >
-                {/* Background image tint */}
-                <div className="absolute inset-0 z-0 opacity-25 group-hover:opacity-40 transition-opacity">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#090a0d] via-[#090a0d]/60 to-transparent" />
-                </div>
-
-                <div className="relative z-10">
-                  <Wine className={`w-5 h-5 mb-2 transition-transform group-hover:scale-110 ${isSelected ? 'text-[#d4af37]' : 'text-zinc-400 group-hover:text-[#d4af37]'}`} />
-                </div>
-
-                <div className="relative z-10">
-                  <h3 className="text-xs sm:text-sm font-semibold text-white group-hover:text-[#d4af37] transition-colors leading-tight">
-                    {cat.name}
-                  </h3>
-                  <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
-                    {cat.description}
-                  </p>
-                </div>
+                Reset to All Categories ✕
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Cards Grid */}
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+            {categories.filter((c) => c.isActive).map((cat) => {
+              const isSelected = selectedCategorySlug === cat.slug;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategorySlug(isSelected ? null : cat.slug);
+                    const catalogEl = document.getElementById('spirits-catalog');
+                    catalogEl?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`relative p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border text-left flex flex-col justify-end overflow-hidden transition-all duration-300 group cursor-pointer aspect-[4/3.2] shadow-lg ${
+                    isSelected
+                      ? 'bg-[#222538] border-[#d4af37] ring-2 ring-[#d4af37]/70 shadow-[0_0_25px_rgba(212,175,55,0.3)] scale-[1.02]'
+                      : 'bg-[#181a24] border-zinc-700/80 hover:border-[#d4af37] hover:bg-[#1f2230] hover:shadow-[0_10px_30px_rgba(212,175,55,0.18)] hover:-translate-y-1'
+                  }`}
+                >
+                  {/* High-Visibility Photographic Background with Rich Tint */}
+                  <div className="absolute inset-0 z-0 opacity-65 group-hover:opacity-85 group-hover:scale-108 transition-all duration-500">
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover object-center brightness-90"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0e1017] via-[#0e1017]/75 to-[#0e1017]/20" />
+                  </div>
+
+                  {/* Bottom Info: Title & Subtitle */}
+                  <div className="relative z-10">
+                    <h3 className={`text-xs sm:text-sm font-serif font-bold transition-colors leading-tight drop-shadow-sm ${
+                      isSelected ? 'text-[#d4af37]' : 'text-white group-hover:text-[#d4af37]'
+                    }`}>
+                      {cat.name}
+                    </h3>
+                    <p className="text-[10.5px] text-zinc-300 font-medium line-clamp-1 mt-0.5 drop-shadow">
+                      {cat.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
