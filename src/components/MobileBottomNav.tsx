@@ -39,16 +39,18 @@ export const MobileBottomNav: React.FC = () => {
         <span className="text-[10px] font-medium">Track</span>
       </button>
 
-      {/* Rider */}
-      <button
-        onClick={() => setActiveView('rider')}
-        className={`flex flex-col items-center gap-1 p-1.5 transition-colors cursor-pointer ${
-          activeView === 'rider' ? 'text-emerald-400 font-bold' : 'text-zinc-400 hover:text-emerald-400'
-        }`}
-      >
-        <Bike className="w-5 h-5 text-emerald-400" />
-        <span className="text-[10px] font-medium">Rider</span>
-      </button>
+      {/* Staff Rider portal - only shown to logged-in dispatchers/riders/admins */}
+      {(currentUser?.role === 'rider' || currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+        <button
+          onClick={() => setActiveView('rider')}
+          className={`flex flex-col items-center gap-1 p-1.5 transition-colors cursor-pointer ${
+            activeView === 'rider' ? 'text-emerald-400 font-bold' : 'text-zinc-400 hover:text-emerald-400'
+          }`}
+        >
+          <Bike className="w-5 h-5 text-emerald-400" />
+          <span className="text-[10px] font-medium">Rider</span>
+        </button>
+      )}
 
       {/* Basket */}
       <button

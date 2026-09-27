@@ -93,46 +93,10 @@ export const Header: React.FC = () => {
             <PackageCheck className="w-4 h-4 text-[#d4af37]" />
             <span>Track Delivery</span>
           </button>
-          <button
-            onClick={() => setActiveView('rider')}
-            className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer whitespace-nowrap ${
-              activeView === 'rider' ? 'text-emerald-400 font-bold' : 'hover:text-emerald-400 text-zinc-300'
-            }`}
-          >
-            <Bike className="w-4 h-4 text-emerald-400" />
-            <span>Rider GPS</span>
-          </button>
-          <button
-            onClick={() => setActiveView('admin')}
-            className={`flex items-center gap-1.5 transition-colors py-1 cursor-pointer whitespace-nowrap ${
-              activeView === 'admin' ? 'text-[#d4af37]' : 'hover:text-[#d4af37]'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>Admin</span>
-          </button>
         </nav>
 
         {/* Zone 3: 1-2 primary actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Rider mobile icon */}
-          <button
-            onClick={() => setActiveView(activeView === 'rider' ? 'store' : 'rider')}
-            className="md:hidden p-2 text-emerald-400 hover:text-emerald-300 rounded-lg transition-colors cursor-pointer"
-            title="Rider GPS App"
-          >
-            <Bike className="w-5 h-5" />
-          </button>
-
-          {/* Admin mobile icon */}
-          <button
-            onClick={() => setActiveView(activeView === 'admin' ? 'store' : 'admin')}
-            className="md:hidden p-2 text-zinc-300 hover:text-[#d4af37] rounded-lg transition-colors cursor-pointer"
-            title="Admin Portal"
-          >
-            <Shield className="w-5 h-5 text-[#d4af37]" />
-          </button>
-
           {/* Track order mobile link */}
           <button
             onClick={() => setActiveView('track-order')}

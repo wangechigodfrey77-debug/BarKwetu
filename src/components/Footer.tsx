@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShieldCheck, Truck, CreditCard, Lock, PhoneCall, Mail } from 'lucide-react';
+import { ShieldCheck, Truck, CreditCard, Lock, PhoneCall, Mail, Shield, Bike } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { setActiveView, setSelectedCategorySlug, settings, setIsAuthModalOpen } = useStore();
@@ -120,28 +120,54 @@ export const Footer: React.FC = () => {
               </button>
             </li>
             <li>
-              <span className="text-zinc-500">Delivery Policy (Fixed KSh 100 across Kenya)</span>
+              <span className="text-zinc-500">Delivery Policy (Fixed KSh 100 in Karatina)</span>
             </li>
             <li>
               <span className="text-zinc-500">Authenticity Guarantee</span>
             </li>
           </ul>
+
+          {/* Discreet Staff Portal Links at Bottom */}
+          <div className="mt-4 pt-3 border-t border-zinc-800/80">
+            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Staff & Operations</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveView('admin')}
+                className="px-2.5 py-1 rounded bg-[#13151c] hover:bg-[#1c1f2a] border border-zinc-800 hover:border-[#d4af37]/40 text-[11px] text-zinc-400 hover:text-[#d4af37] flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Shield className="w-3 h-3 text-[#d4af37]" />
+                <span>Admin Login</span>
+              </button>
+              <button
+                onClick={() => setActiveView('rider')}
+                className="px-2.5 py-1 rounded bg-[#13151c] hover:bg-[#1c1f2a] border border-zinc-800 hover:border-emerald-500/40 text-[11px] text-zinc-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Bike className="w-3 h-3 text-emerald-400" />
+                <span>Rider GPS Login</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <div>
-          <h5 className="text-xs font-semibold uppercase tracking-wider text-zinc-200 mb-3">Staff & Security</h5>
-          <p className="text-xs text-zinc-500 mb-3">
-            Store management and order dispatchers can access the operational dashboard below.
+          <h5 className="text-xs font-semibold uppercase tracking-wider text-zinc-200 mb-3">Delivery & Dispatch Hub</h5>
+          <p className="text-xs text-zinc-400 mb-2 leading-relaxed">
+            Central dispatch operating daily across Karatina Town, Mathira East & West, and surrounding environs.
           </p>
-          <button
-            onClick={() => {
-              setActiveView('admin');
-            }}
-            className="px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-[#d4af37]/40 text-zinc-300 hover:text-[#d4af37] text-xs transition-all flex items-center gap-2 cursor-pointer"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Admin & Operations Portal</span>
-          </button>
+          <div className="bg-[#11131a] border border-zinc-800 rounded-xl p-3 space-y-1.5 text-xs text-zinc-300">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Dispatch Window:</span>
+              <span className="font-semibold text-[#d4af37]">10:00 AM – 11:30 PM</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Delivery Speed:</span>
+              <span className="font-semibold text-emerald-400">30–45 Minutes</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Flat Fee:</span>
+              <span className="font-semibold text-white font-mono">KSh 100 on all orders</span>
+            </div>
+          </div>
         </div>
       </div>
 
