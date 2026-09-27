@@ -1399,6 +1399,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       coordinates: resolvedCoords,
     };
 
+    const calculatedCoins = Math.max(1, Math.round((cartTotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze')));
+
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       orderNumber,
@@ -1411,6 +1413,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       deliveryFee,
       discount: discountAmount,
       total: cartTotal,
+      kwetuCoinsEarned: calculatedCoins,
       promoCodeApplied: appliedPromo?.code,
       status: 'pending',
       paymentMethod: 'mpesa_palpluss',

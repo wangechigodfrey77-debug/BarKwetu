@@ -25,6 +25,11 @@ import {
   ShoppingBag,
   Award,
   Zap,
+  RotateCcw,
+  Receipt,
+  Sparkles,
+  Search,
+  Filter,
 } from 'lucide-react';
 
 export const CustomerProfileModal: React.FC = () => {
@@ -37,6 +42,8 @@ export const CustomerProfileModal: React.FC = () => {
     redeemLoyaltyReward,
     updateUserProfile,
     orders,
+    products,
+    addToCart,
     setActiveView,
     setCurrentOrder,
     applyPromoCode,
@@ -48,6 +55,8 @@ export const CustomerProfileModal: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isRedeemingId, setIsRedeemingId] = useState<string | null>(null);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'active' | 'delivered'>('all');
+  const [orderSearch, setOrderSearch] = useState('');
 
   // Profile Edit Form State
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
@@ -77,6 +86,87 @@ export const CustomerProfileModal: React.FC = () => {
   const userOrders = orders.filter(
     (o) => o.userId === currentUser.id || o.userEmail.toLowerCase() === currentUser.email.toLowerCase()
   );
+
+  const getOrderCoins = (order: any) => {
+    if (typeof order.kwetuCoinsEarned === 'number' && order.kwetuCoinsEarned > 0) {
+      return order.kwetuCoinsEarned;
+    }
+    return Math.max(1, Math.round(((order.total || 0) / 100) * multiplier));
+  };
+
+  const totalUserSpend = userOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalCoinsFromOrders = userOrders.reduce((sum, o) => sum + getOrderCoins(o), 0);
+
+  const filteredOrders = userOrders.filter((order) => {
+    const matchesFilter =
+      orderFilter === 'all'
+        ? true
+        : orderFilter === 'active'
+        ? order.status !== 'delivered' && order.status !== 'cancelled'
+        : order.status === 'delivered';
+
+    const matchesSearch =
+      !orderSearch.trim() ||
+      order.orderNumber.toLowerCase().includes(orderSearch.toLowerCase().trim()) ||
+      order.items.some((it: any) => it.productName.toLowerCase().includes(orderSearch.toLowerCase().trim())) ||
+      (order.mpesaDetails?.receiptNumber &&
+        order.mpesaDetails.receiptNumber.toLowerCase().includes(orderSearch.toLowerCase().trim()));
+
+    return matchesFilter && matchesSearch;
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return {
+          label: 'Delivered',
+          bg: 'bg-emerald-950/80 text-emerald-400 border-emerald-800/60',
+          dot: 'bg-emerald-400',
+        };
+      case 'out_for_delivery':
+        return {
+          label: 'Out for Express Delivery',
+          bg: 'bg-amber-950/80 text-amber-400 border-amber-800/60',
+          dot: 'bg-amber-400 animate-pulse',
+        };
+      case 'preparing':
+        return {
+          label: 'Packaging & Seal',
+          bg: 'bg-blue-950/80 text-blue-400 border-blue-800/60',
+          dot: 'bg-blue-400',
+        };
+      case 'paid':
+        return {
+          label: 'Payment Confirmed',
+          bg: 'bg-teal-950/80 text-teal-400 border-teal-800/60',
+          dot: 'bg-teal-400',
+        };
+      case 'cancelled':
+        return {
+          label: 'Cancelled',
+          bg: 'bg-rose-950/80 text-rose-400 border-rose-800/60',
+          dot: 'bg-rose-400',
+        };
+      case 'pending':
+      default:
+        return {
+          label: 'Awaiting Payment',
+          bg: 'bg-zinc-800 text-zinc-300 border-zinc-700',
+          dot: 'bg-zinc-400',
+        };
+    }
+  };
+
+  const handleReorder = (order: any) => {
+    order.items.forEach((item: any) => {
+      const matchedProduct = products.find((p) => p.id === item.productId);
+      if (matchedProduct) {
+        addToCart(matchedProduct, item.quantity);
+      }
+    });
+    setIsProfileModalOpen(false);
+    setIsCartOpen(true);
+  };
 
   const handleCopyCode = async (code: string) => {
     if (navigator.clipboard) {
@@ -503,101 +593,305 @@ export const CustomerProfileModal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: MY ORDERS */}
+          {/* TAB 2: MY ORDERS (Order History) */}
           {profileActiveTab === 'orders' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="space-y-5">
+              {/* Top Header & High-Level Summary Stats */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-serif font-bold text-white">Order History</h3>
-                  <p className="text-xs text-zinc-400">
-                    Track live deliveries, view PalPluss M-Pesa receipts & past items
+                  <h3 className="text-base sm:text-lg font-serif font-bold text-white flex items-center gap-2">
+                    <Package className="w-5 h-5 text-[#d4af37]" />
+                    <span>Order History & Kwetu Coins Earned</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    View your past spirit purchases, dispatch delivery progress, and total loyalty coins rewarded.
                   </p>
                 </div>
               </div>
 
-              {userOrders.length > 0 ? (
-                <div className="space-y-3">
-                  {userOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="bg-[#121318] border border-zinc-800 hover:border-[#d4af37]/50 rounded-xl p-4 transition-colors"
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/70">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-bold text-[#d4af37]">
-                              #{order.orderNumber}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                                order.status === 'delivered'
-                                  ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/50'
-                                  : order.status === 'out_for_delivery'
-                                  ? 'bg-amber-950/80 text-amber-400 border-amber-800/50 animate-pulse'
-                                  : 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                              }`}
-                            >
-                              {order.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Placed on {new Date(order.createdAt).toLocaleDateString()} · M-Pesa Receipt:{' '}
-                            <strong className="text-zinc-200">
-                              {order.mpesaDetails?.receiptNumber || 'Pending'}
-                            </strong>
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-base font-bold font-mono text-white">
-                            {formatKES(order.total)}
-                          </span>
-                          <button
-                            onClick={() => handleViewOrderTracking(order)}
-                            className="px-3 py-1.5 rounded-lg bg-[#d4af37] text-black font-semibold text-xs hover:brightness-110 transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Track</span>
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Items row */}
-                      <div className="pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        {order.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-[#0b0c10] border border-zinc-800/80 rounded-lg p-1.5 flex items-center gap-2 shrink-0 text-xs text-zinc-300"
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.productName}
-                              className="w-6 h-6 object-contain"
-                            />
-                            <span className="truncate max-w-[140px]">{item.productName}</span>
-                            <span className="text-zinc-500 font-mono">x{item.quantity}</span>
-                          </div>
-                        ))}
-                      </div>
+              {/* Order History Summary Metrics */}
+              {userOrders.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-[#12141c] border border-zinc-800/90 rounded-xl p-3.5 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-700/60 flex items-center justify-center text-[#d4af37] shrink-0">
+                      <Receipt className="w-5 h-5" />
                     </div>
-                  ))}
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase font-semibold block">Total Orders</span>
+                      <span className="text-lg font-bold font-mono text-white">{userOrders.length} Completed</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#12141c] border border-zinc-800/90 rounded-xl p-3.5 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-700/60 flex items-center justify-center text-emerald-400 shrink-0">
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 uppercase font-semibold block">Total Spent</span>
+                      <span className="text-lg font-bold font-mono text-white">{formatKES(totalUserSpend)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-[#1a1710] to-[#12141c] border border-[#d4af37]/40 rounded-xl p-3.5 flex items-center gap-3 shadow-md shadow-[#d4af37]/5">
+                    <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center text-[#d4af37] shrink-0">
+                      <Coins className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#d4af37] uppercase font-bold block">Coins Earned on Orders</span>
+                      <span className="text-lg font-bold font-mono text-white">+{totalCoinsFromOrders.toLocaleString()} Coins</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Filter Tabs & Search Bar */}
+              {userOrders.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    <button
+                      onClick={() => setOrderFilter('all')}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        orderFilter === 'all'
+                          ? 'bg-[#d4af37] text-black shadow-sm font-bold'
+                          : 'bg-[#12131a] text-zinc-400 hover:text-white border border-zinc-800'
+                      }`}
+                    >
+                      All ({userOrders.length})
+                    </button>
+                    <button
+                      onClick={() => setOrderFilter('active')}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        orderFilter === 'active'
+                          ? 'bg-[#d4af37] text-black shadow-sm font-bold'
+                          : 'bg-[#12131a] text-zinc-400 hover:text-white border border-zinc-800'
+                      }`}
+                    >
+                      In Transit / Active ({userOrders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length})
+                    </button>
+                    <button
+                      onClick={() => setOrderFilter('delivered')}
+                      className={`py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        orderFilter === 'delivered'
+                          ? 'bg-[#d4af37] text-black shadow-sm font-bold'
+                          : 'bg-[#12131a] text-zinc-400 hover:text-white border border-zinc-800'
+                      }`}
+                    >
+                      Delivered ({userOrders.filter((o) => o.status === 'delivered').length})
+                    </button>
+                  </div>
+
+                  {/* Search orders */}
+                  <div className="relative min-w-[200px]">
+                    <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+                    <input
+                      type="text"
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      placeholder="Search order # or spirit..."
+                      className="w-full bg-[#0e0f14] border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#d4af37]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Order Cards List */}
+              {filteredOrders.length > 0 ? (
+                <div className="space-y-4">
+                  {filteredOrders.map((order) => {
+                    const statusInfo = getStatusBadge(order.status);
+                    const earnedCoins = getOrderCoins(order);
+                    const formattedDate = new Date(order.createdAt).toLocaleDateString('en-KE', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="bg-[#12141c] border border-zinc-800/90 hover:border-[#d4af37]/50 rounded-2xl p-4 sm:p-5 transition-all shadow-lg space-y-4"
+                      >
+                        {/* Order Header: ID, Date, Status, and Total Kwetu Coins Earned */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-sm sm:text-base font-extrabold text-white bg-black/50 px-2.5 py-0.5 rounded-lg border border-zinc-700">
+                                #{order.orderNumber}
+                              </span>
+
+                              {/* Copy Order Number */}
+                              <button
+                                onClick={() => handleCopyCode(order.orderNumber)}
+                                className="p-1 rounded-md text-zinc-400 hover:text-white bg-zinc-800/70 hover:bg-zinc-700 transition-colors cursor-pointer"
+                                title="Copy Order Number"
+                              >
+                                {copiedCode === order.orderNumber ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+
+                              {/* Order Status Badge */}
+                              <span
+                                className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${statusInfo.bg}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.dot}`} />
+                                <span>{statusInfo.label}</span>
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 flex-wrap">
+                              <span>Placed on {formattedDate}</span>
+                              <span className="text-zinc-600">·</span>
+                              <span>
+                                M-Pesa:{' '}
+                                <strong className="text-zinc-200 font-mono">
+                                  {order.mpesaDetails?.receiptNumber || 'Validated STK'}
+                                </strong>
+                              </span>
+                            </p>
+                          </div>
+
+                          {/* Coins Earned High-Visibility Pill & Order Total */}
+                          <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/50">
+                            {/* Coins Earned Highlight */}
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500/15 via-[#d4af37]/20 to-amber-600/15 border border-[#d4af37]/40 shadow-sm">
+                              <Coins className="w-3.5 h-3.5 text-[#d4af37]" />
+                              <span className="text-xs font-bold text-[#d4af37] font-mono">
+                                +{earnedCoins.toLocaleString()} Coins Earned
+                              </span>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-base sm:text-lg font-bold font-mono text-white tabular-nums block">
+                                {formatKES(order.total)}
+                              </span>
+                              <span className="text-[10px] text-zinc-400">
+                                {order.items.reduce((s, it) => s + it.quantity, 0)} {order.items.reduce((s, it) => s + it.quantity, 0) === 1 ? 'bottle' : 'bottles'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Order Items Detailed List */}
+                        <div className="space-y-2">
+                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                            Purchased Spirits & Botanicals
+                          </h4>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {order.items.map((item, idx) => (
+                              <div
+                                key={`${item.productId}-${idx}`}
+                                className="bg-[#0b0c10] border border-zinc-800/80 rounded-xl p-2.5 flex items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-lg bg-[#141620] border border-zinc-800 flex items-center justify-center p-1 shrink-0">
+                                    <img
+                                      src={item.image}
+                                      alt={item.productName}
+                                      className="max-h-full max-w-full object-contain"
+                                    />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-zinc-200 truncate leading-snug">
+                                      {item.productName}
+                                    </p>
+                                    <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                                      <span className="text-[#d4af37] font-medium">{item.brand}</span>
+                                      <span className="text-zinc-600">·</span>
+                                      <span>{item.volume}</span>
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  <span className="text-xs font-bold font-mono text-zinc-200 block">
+                                    {formatKES(item.price * item.quantity)}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500 font-mono">
+                                    {item.quantity} × {formatKES(item.price)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Delivery Details & Financial Footer */}
+                        <div className="bg-[#0a0b0e] border border-zinc-800/80 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-300">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <MapPin className="w-4 h-4 text-[#d4af37] shrink-0" />
+                            <div className="min-w-0">
+                              <span className="text-zinc-400 block text-[10px] uppercase font-semibold">Delivery Destination</span>
+                              <p className="font-medium text-zinc-200 truncate">
+                                {order.shippingAddress.town}, {order.shippingAddress.county}
+                                {order.shippingAddress.exactLocation ? ` (${order.shippingAddress.exactLocation})` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            {/* Track Order CTA */}
+                            <button
+                              onClick={() => handleViewOrderTracking(order)}
+                              className="px-3.5 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#e5b869] text-black font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-[#d4af37]/15"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              <span>Live GPS Track</span>
+                              <ArrowUpRight className="w-3 h-3" />
+                            </button>
+
+                            {/* Reorder Button */}
+                            <button
+                              onClick={() => handleReorder(order)}
+                              className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-zinc-700"
+                              title="Add all items to current basket"
+                            >
+                              <RotateCcw className="w-3 h-3 text-[#d4af37]" />
+                              <span>Reorder</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-10 bg-[#0c0d12] border border-zinc-800 rounded-2xl text-center space-y-3">
                   <Package className="w-12 h-12 stroke-1 text-zinc-600 mx-auto" />
-                  <h4 className="text-base font-bold text-white">No Orders Found</h4>
+                  <h4 className="text-base font-bold text-white">
+                    {userOrders.length === 0 ? 'No Orders Found' : 'No Matching Orders'}
+                  </h4>
                   <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                    You haven&apos;t placed any orders with this account yet. Browse our reserve catalog to get started.
+                    {userOrders.length === 0
+                      ? "You haven't placed any orders with this account yet. Browse our reserve catalog to get started and earn Kwetu Coins on your first purchase."
+                      : 'Try clearing your search query or filter to view past orders.'}
                   </p>
-                  <button
-                    onClick={() => {
-                      setIsProfileModalOpen(false);
-                      setActiveView('store');
-                    }}
-                    className="py-2.5 px-5 bg-[#d4af37] text-black font-semibold text-xs rounded-xl cursor-pointer"
-                  >
-                    Browse Cellar Spirits
-                  </button>
+                  {userOrders.length === 0 ? (
+                    <button
+                      onClick={() => {
+                        setIsProfileModalOpen(false);
+                        setActiveView('store');
+                      }}
+                      className="py-2.5 px-5 bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-[#d4af37]/20"
+                    >
+                      Browse Cellar Spirits
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setOrderFilter('all');
+                        setOrderSearch('');
+                      }}
+                      className="py-2 px-4 bg-zinc-800 text-zinc-200 hover:text-white font-medium text-xs rounded-xl cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
                 </div>
               )}
             </div>

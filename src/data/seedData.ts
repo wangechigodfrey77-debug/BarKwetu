@@ -613,9 +613,11 @@ export const INITIAL_USERS: User[] = [
 export const INITIAL_SAMPLE_ORDER: Order = {
   id: 'ord-sample-98421',
   orderNumber: 'BW-98421',
+  userId: 'user-customer-1',
   userEmail: 'gmaurice101@gmail.com',
   userName: 'Maurice G.',
   phone: '0712345678',
+  kwetuCoinsEarned: 480,
   items: [
     {
       productId: 'prod-singleton-12',

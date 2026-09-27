@@ -158,6 +158,7 @@ export interface Order {
   mpesaDetails: MpesaPaymentDetails;
   shippingAddress: ShippingAddress;
   trackingTimeline: TrackingStep[];
+  kwetuCoinsEarned?: number;
   assignedRiderId?: string;
   assignedRiderName?: string;
   assignedRiderPhone?: string;
