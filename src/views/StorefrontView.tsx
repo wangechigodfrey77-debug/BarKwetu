@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { ProductCard } from '../components/ProductCard';
+import { FloatingProductBanner } from '../components/FloatingProductBanner';
 import { HERO_IMAGE } from '../data/seedData';
 import { Search, SlidersHorizontal, ArrowRight, Sparkles, Wine, ShieldCheck, Truck, Clock } from 'lucide-react';
 
@@ -176,6 +177,9 @@ export const StorefrontView: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* 1.5. FLOATING ALL-PRODUCTS SHOWCASE BANNER */}
+      <FloatingProductBanner />
 
       {/* 2. CATEGORIES HORIZONTAL GRID */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -404,8 +408,8 @@ export const StorefrontView: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {filteredProducts.map((product, idx) => (
+              <ProductCard key={`${product.id}-${idx}`} product={product} />
             ))}
           </div>
         )}

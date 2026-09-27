@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatKES, formatDateTime, formatKenyanPhone } from '../utils/formatters';
+import { getTierMultiplier } from '../utils/loyaltyUtils';
 import {
   CheckCircle2,
   PackageCheck,
@@ -11,10 +12,12 @@ import {
   Smartphone,
   MapPin,
   Clock,
+  Coins,
+  Gift,
 } from 'lucide-react';
 
 export const OrderConfirmationView: React.FC = () => {
-  const { currentOrder, setActiveView } = useStore();
+  const { currentOrder, setActiveView, currentUser, openProfileModal } = useStore();
 
   if (!currentOrder) {
     return (
@@ -31,6 +34,11 @@ export const OrderConfirmationView: React.FC = () => {
       </div>
     );
   }
+
+  const earnedCoins = Math.max(
+    1,
+    Math.round((currentOrder.subtotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze'))
+  );
 
   const handleShareWhatsApp = () => {
     const text = `Order confirmed on BarKwetu! Order #${currentOrder.orderNumber} for ${formatKES(currentOrder.total)}. Track: https://barkwetu.co.ke/track/${currentOrder.orderNumber}`;
@@ -55,7 +63,7 @@ export const OrderConfirmationView: React.FC = () => {
           </h1>
 
           <p className="text-xs sm:text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
-            Your spirits are currently being packed into thermal temperature-controlled packaging at our Nairobi cellar.
+            Your spirits are currently being packed into thermal temperature-controlled packaging at our Karatina cellar.
           </p>
 
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3 p-3 bg-[#0d0e12] border border-zinc-800 rounded-xl text-xs">
@@ -71,8 +79,36 @@ export const OrderConfirmationView: React.FC = () => {
             </div>
             <div className="px-3 py-1">
               <span className="text-zinc-500 block text-[10px] uppercase">Delivery Window</span>
-              <span className="font-semibold text-[#d4af37]">45–60 Mins Express</span>
+              <span className="font-semibold text-[#d4af37]">25–35 Mins Express</span>
             </div>
+          </div>
+
+          {/* Loyalty Points Earned Showcase Banner */}
+          <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-[#181924] via-[#1f2030] to-[#181924] border border-[#d4af37]/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37] shrink-0">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>+{earnedCoins} Kwetu Coins Credited!</span>
+                  <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.2 rounded font-mono">
+                    Added to Wallet
+                  </span>
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  {currentUser ? `Current balance: ${currentUser.kwetuCoins ?? 0} Kwetu Coins` : 'Redeemable for discount vouchers in your profile'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => openProfileModal('coins')}
+              className="py-2 px-4 rounded-lg bg-[#d4af37] text-black hover:brightness-110 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-md shadow-[#d4af37]/20"
+            >
+              <Gift className="w-3.5 h-3.5" />
+              <span>Open Loyalty Wallet</span>
+            </button>
           </div>
         </div>
 
@@ -104,7 +140,7 @@ export const OrderConfirmationView: React.FC = () => {
           {/* Items */}
           <div className="space-y-3">
             {currentOrder.items.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs pb-3 border-b border-zinc-800/60">
+              <div key={`${item.productId}-${idx}`} className="flex items-center justify-between text-xs pb-3 border-b border-zinc-800/60">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-[#0b0c10] rounded-lg p-1 flex items-center justify-center shrink-0">
                     <img

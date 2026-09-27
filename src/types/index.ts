@@ -184,6 +184,31 @@ export interface PromoCode {
   isActive: boolean;
 }
 
+export type LoyaltyTier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum VIP';
+
+export interface KwetuCoinTransaction {
+  id: string;
+  userId: string;
+  amount: number; // positive for earned, negative for redeemed
+  type: 'earned_purchase' | 'redeemed_discount' | 'redeemed_delivery' | 'welcome_bonus' | 'admin_adjustment';
+  description: string;
+  orderNumber?: string;
+  promoCodeGenerated?: string;
+  timestamp: string;
+}
+
+export interface LoyaltyReward {
+  id: string;
+  title: string;
+  description: string;
+  coinCost: number;
+  discountType: 'fixed' | 'free_delivery';
+  discountValue: number;
+  minSpend: number;
+  badge?: string;
+  iconName: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -193,6 +218,13 @@ export interface User {
   phone?: string;
   role: 'customer' | 'admin' | 'superadmin' | 'rider';
   bikeRegistration?: string;
+  kwetuCoins?: number;
+  lifetimeCoinsEarned?: number;
+  loyaltyTier?: LoyaltyTier;
+  coinsHistory?: KwetuCoinTransaction[];
+  defaultCounty?: string;
+  defaultTown?: string;
+  defaultAddress?: string;
   createdAt: string;
 }
 

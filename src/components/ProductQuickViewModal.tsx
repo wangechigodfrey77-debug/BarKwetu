@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatKES } from '../utils/formatters';
+import { KARATINA_DELIVERY_ZONES } from '../utils/kenyaLocations';
+import { getTierMultiplier } from '../utils/loyaltyUtils';
 import {
   X,
   ShoppingBag,
@@ -16,6 +18,10 @@ import {
   PenLine,
   Trash2,
   Lock,
+  Clock,
+  Zap,
+  Coins,
+  Gift,
 } from 'lucide-react';
 
 export const ProductQuickViewModal: React.FC = () => {
@@ -31,10 +37,29 @@ export const ProductQuickViewModal: React.FC = () => {
     getProductRatingStats,
     submitProductReview,
     deleteReview,
+    orders,
   } = useStore();
 
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Delivery Estimator State
+  const [selectedZoneKey, setSelectedZoneKey] = useState<string>('karatina');
+
+  const activeOrdersCount = orders.filter(
+    (o) => o.status === 'pending' || o.status === 'paid' || o.status === 'preparing' || o.status === 'out_for_delivery'
+  ).length;
+
+  const storeVolumeBuffer = activeOrdersCount <= 2 ? 0 : activeOrdersCount <= 5 ? 3 : 7;
+  const selectedZone = KARATINA_DELIVERY_ZONES[selectedZoneKey] || KARATINA_DELIVERY_ZONES['karatina'];
+  const baseMinutes = selectedZone.estimatedMinutesFromHub;
+  const totalEstMinutes = baseMinutes + storeVolumeBuffer;
+  const minTime = Math.max(5, totalEstMinutes - 3);
+  const maxTime = totalEstMinutes + 5;
+
+  const arrivalTime = new Date();
+  arrivalTime.setMinutes(arrivalTime.getMinutes() + totalEstMinutes);
+  const formattedArrival = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // Review Form States
   const [ratingInput, setRatingInput] = useState<number>(5);
@@ -148,7 +173,7 @@ export const ProductQuickViewModal: React.FC = () => {
               <div className="flex gap-2">
                 {product.images.map((img, idx) => (
                   <button
-                    key={idx}
+                    key={`${img}-${idx}`}
                     onClick={() => setActiveImageIndex(idx)}
                     className={`w-16 h-16 rounded-lg bg-[#0b0c10] border p-1 overflow-hidden transition-all ${
                       activeImageIndex === idx
@@ -247,7 +272,7 @@ export const ProductQuickViewModal: React.FC = () => {
               </div>
 
               {/* Key Specs: Volume, ABV, Stock */}
-              <div className="grid grid-cols-3 gap-2 p-3 bg-[#0d0e12] border border-zinc-800/80 rounded-xl text-center mb-5 text-xs">
+              <div className="grid grid-cols-3 gap-2 p-3 bg-[#0d0e12] border border-zinc-800/80 rounded-xl text-center mb-4 text-xs">
                 <div>
                   <span className="text-zinc-500 block text-[10px] uppercase">Bottle Size</span>
                   <span className="font-semibold text-zinc-200">{product.volume}</span>
@@ -261,6 +286,87 @@ export const ProductQuickViewModal: React.FC = () => {
                   <span className={`font-semibold ${isOutOfStock ? 'text-rose-400' : isLowStock ? 'text-amber-400' : 'text-emerald-400'}`}>
                     {isOutOfStock ? 'Out of Stock' : isLowStock ? `${product.stock} left` : 'In Stock'}
                   </span>
+                </div>
+              </div>
+
+              {/* Loyalty Kwetu Coins Earning Banner */}
+              <div className="bg-[#12131b] border border-[#d4af37]/25 rounded-xl px-3 py-2.5 mb-5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#d4af37]">
+                    <Coins className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-white">
+                      Earn <span className="text-[#d4af37] font-mono font-bold">+{Math.max(1, Math.round(((product.salePrice ?? product.price) / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze') * quantity))} Kwetu Coins</span>
+                    </p>
+                    <p className="text-[10px] text-zinc-400">
+                      {currentUser?.loyaltyTier ? `${currentUser.loyaltyTier} Tier (${getTierMultiplier(currentUser.loyaltyTier)}x rate)` : 'Redeemable for instant cash discount vouchers'}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#d4af37] bg-[#d4af37]/10 px-2 py-0.5 rounded border border-[#d4af37]/30">
+                  Loyalty
+                </span>
+              </div>
+
+              {/* Real-Time Delivery Time Estimator */}
+              <div className="bg-gradient-to-br from-[#161822] to-[#0e0f14] border border-[#d4af37]/30 rounded-2xl p-4 mb-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#d4af37]/5 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#d4af37]/15 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37]">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <span>Live Delivery Estimator</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </h4>
+                      <p className="text-[10px] text-zinc-400">Based on live Karatina Hub volume & GPS zone</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-[#d4af37] bg-[#d4af37]/10 px-2.5 py-1 rounded-lg border border-[#d4af37]/30 font-mono">
+                      {minTime} – {maxTime} mins
+                    </span>
+                  </div>
+                </div>
+
+                {/* Zone Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-zinc-400 mb-1">Select Delivery Zone:</label>
+                    <select
+                      value={selectedZoneKey}
+                      onChange={(e) => setSelectedZoneKey(e.target.value)}
+                      className="w-full bg-[#0a0b0e] border border-zinc-800 text-zinc-200 text-xs rounded-xl px-2.5 py-2 focus:outline-none focus:border-[#d4af37] cursor-pointer"
+                    >
+                      {Object.entries(KARATINA_DELIVERY_ZONES).map(([key, zone]) => (
+                        <option key={key} value={key}>
+                          {zone.name} ({zone.county})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col justify-end">
+                    <div className="bg-[#0a0b0e] border border-zinc-800/80 rounded-xl px-3 py-2 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-zinc-400">
+                        <Clock className="w-3.5 h-3.5 text-[#d4af37]" />
+                        <span>Est. Arrival:</span>
+                      </div>
+                      <span className="font-bold font-mono text-white">{formattedArrival}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Store Volume Status Bar */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80 text-[11px] text-zinc-400">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${activeOrdersCount > 5 ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                    <span>BarKwetu Hub: <strong className="text-zinc-200">{activeOrdersCount <= 2 ? 'Normal Flow' : activeOrdersCount <= 5 ? 'Moderate Traffic' : 'Peak Hours'}</strong> ({activeOrdersCount} active orders)</span>
+                  </div>
+                  <span className="text-[#d4af37] font-medium">Express Dispatch</span>
                 </div>
               </div>
 
@@ -548,9 +654,9 @@ export const ProductQuickViewModal: React.FC = () => {
                 </button>
               </div>
             ) : (
-              productReviews.map((rev) => (
+              productReviews.map((rev, idx) => (
                 <div
-                  key={rev.id}
+                  key={`${rev.id}-${idx}`}
                   className="bg-[#12131a] border border-zinc-800/80 rounded-xl p-4 sm:p-5 space-y-2.5 transition-colors hover:border-zinc-700/80"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -632,9 +738,9 @@ export const ProductQuickViewModal: React.FC = () => {
               Connoisseurs also enjoyed
             </h4>
             <div className="grid grid-cols-3 gap-3">
-              {related.map((rel) => (
+              {related.map((rel, idx) => (
                 <div
-                  key={rel.id}
+                  key={`${rel.id}-${idx}`}
                   onClick={() => {
                     setSelectedProductId(rel.id);
                     setQuantity(1);

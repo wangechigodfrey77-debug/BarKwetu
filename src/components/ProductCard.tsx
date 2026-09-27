@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import { formatKES } from '../utils/formatters';
-import { ShoppingBag, Eye, Wine, Star } from 'lucide-react';
+import { getTierMultiplier } from '../utils/loyaltyUtils';
+import { ShoppingBag, Eye, Wine, Star, Coins } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +27,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isOutOfStock = product.stock <= 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const hasSale = product.salePrice && product.salePrice < product.price;
+  const effectivePrice = product.salePrice ?? product.price;
+  const tierMultiplier = getTierMultiplier(currentUser?.loyaltyTier || 'Bronze');
+  const coinsEarned = Math.max(1, Math.round((effectivePrice / 100) * tierMultiplier));
 
   const handleImageClick = () => {
     if (isOutOfStock) return;
@@ -141,14 +145,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </span>
           </div>
 
-          {/* Stock Status text */}
-          <div className="text-[11px] mb-3">
+          {/* Stock Status & Kwetu Coins Earned text */}
+          <div className="flex items-center justify-between text-[11px] mb-3">
             {isOutOfStock ? (
               <span className="text-rose-400 font-medium">Out of Stock</span>
             ) : isLowStock ? (
               <span className="text-amber-400 font-medium">Low Stock · Only {product.stock} left</span>
             ) : (
               <span className="text-emerald-400 font-medium">In Stock</span>
+            )}
+
+            {!isOutOfStock && (
+              <span className="text-[10px] text-[#d4af37] font-semibold flex items-center gap-1 font-mono">
+                <Coins className="w-3 h-3" />
+                <span>+{coinsEarned} Coins</span>
+              </span>
             )}
           </div>
         </div>

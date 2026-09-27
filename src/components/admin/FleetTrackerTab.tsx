@@ -305,14 +305,14 @@ export const FleetTrackerTab: React.FC = () => {
             </div>
 
             <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
-              {allRiders.map((rider) => {
+              {allRiders.map((rider, idx) => {
                 const assignedOrders = orders.filter(
                   (o) => o.assignedRiderId === rider.id && o.status !== 'delivered' && o.status !== 'cancelled'
                 );
 
                 return (
                   <div
-                    key={rider.id}
+                    key={`${rider.id}-${idx}`}
                     className="p-3.5 bg-[#0e0f14] border border-zinc-800 rounded-xl space-y-2 hover:border-zinc-700 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -383,8 +383,8 @@ export const FleetTrackerTab: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
-              {orders.slice(0, 8).map((order) => (
-                <tr key={order.id} className="hover:bg-[#161822] transition-colors">
+              {orders.slice(0, 8).map((order, idx) => (
+                <tr key={`${order.id}-${idx}`} className="hover:bg-[#161822] transition-colors">
                   <td className="py-3 font-mono font-bold text-white">{order.orderNumber}</td>
                   <td className="py-3">
                     <p className="font-medium text-zinc-200">{order.userName}</p>

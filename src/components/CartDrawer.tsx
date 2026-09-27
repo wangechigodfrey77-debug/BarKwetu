@@ -90,11 +90,11 @@ export const CartDrawer: React.FC = () => {
             </div>
           ) : (
             <>
-              {cart.map((item) => {
+              {cart.map((item, idx) => {
                 const effectivePrice = item.product.salePrice ?? item.product.price;
                 return (
                   <div
-                    key={item.product.id}
+                    key={`${item.product.id}-${idx}`}
                     className="flex gap-3.5 p-3.5 bg-[#14151c] border border-zinc-800/80 rounded-xl"
                   >
                     <div className="w-16 h-16 bg-[#0a0b0e] rounded-lg p-1.5 flex items-center justify-center shrink-0">

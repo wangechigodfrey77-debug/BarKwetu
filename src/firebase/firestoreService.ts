@@ -7,11 +7,9 @@ import {
   updateDoc,
   deleteDoc,
   onSnapshot,
-  query,
-  orderBy,
-  increment,
+  getDocFromServer,
 } from 'firebase/firestore';
-import { db } from './config';
+import { db, auth } from './config';
 import {
   Product,
   Category,
@@ -42,6 +40,69 @@ const SETTINGS_COL = 'settings';
 const AUDIT_COL = 'auditLogs';
 const USERS_COL = 'users';
 const REVIEWS_COL = 'reviews';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid || null,
+      email: auth.currentUser?.email || null,
+      emailVerified: auth.currentUser?.emailVerified || null,
+      isAnonymous: auth.currentUser?.isAnonymous || null,
+      tenantId: auth.currentUser?.tenantId || null,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.warn('Firestore Warning/Notice: ', JSON.stringify(errInfo));
+  return errInfo;
+}
+
+/**
+ * Validates connection to Firestore backend
+ */
+export async function testConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, 'settings', 'main'));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firestore is running in local offline cache mode.');
+    }
+    return false;
+  }
+}
 
 /**
  * Deep recursive sanitizer that removes undefined values so Firestore does not reject writes
@@ -123,7 +184,7 @@ export const seedFirestoreIfEmpty = async () => {
       }
     }
   } catch (error) {
-    console.warn('Firestore seeding notice:', error);
+    handleFirestoreError(error, OperationType.GET, 'seed_check');
   }
 };
 
@@ -138,7 +199,9 @@ export const subscribeToReviews = (callback: (reviews: ProductReview[]) => void)
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(items);
     },
-    (err) => console.error('Error listening to reviews:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, REVIEWS_COL);
+    }
   );
 };
 
@@ -150,7 +213,9 @@ export const subscribeToProducts = (callback: (products: Product[]) => void) => 
       const items = snapshot.docs.map((d) => d.data() as Product);
       callback(items);
     },
-    (err) => console.error('Error listening to products:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, PRODUCTS_COL);
+    }
   );
 };
 
@@ -163,7 +228,9 @@ export const subscribeToCategories = (callback: (categories: Category[]) => void
       items.sort((a, b) => a.displayOrder - b.displayOrder);
       callback(items);
     },
-    (err) => console.error('Error listening to categories:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, CATEGORIES_COL);
+    }
   );
 };
 
@@ -193,7 +260,9 @@ export const subscribeToOrders = (
         callback(items, newlyAddedOrders);
       }
     },
-    (err) => console.error('Error listening to orders:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, ORDERS_COL);
+    }
   );
 };
 
@@ -205,7 +274,9 @@ export const subscribeToPromoCodes = (callback: (promos: PromoCode[]) => void) =
       const items = snapshot.docs.map((d) => d.data() as PromoCode);
       callback(items);
     },
-    (err) => console.error('Error listening to promo codes:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, PROMOS_COL);
+    }
   );
 };
 
@@ -218,7 +289,9 @@ export const subscribeToSettings = (callback: (settings: SiteSettings) => void) 
         callback(snapshot.data() as SiteSettings);
       }
     },
-    (err) => console.error('Error listening to settings:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, `${SETTINGS_COL}/main`);
+    }
   );
 };
 
@@ -231,7 +304,9 @@ export const subscribeToAuditLogs = (callback: (logs: AuditLog[]) => void) => {
       items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       callback(items);
     },
-    (err) => console.error('Error listening to audit logs:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, AUDIT_COL);
+    }
   );
 };
 
@@ -243,7 +318,9 @@ export const subscribeToUsers = (callback: (users: User[]) => void) => {
       const items = snapshot.docs.map((d) => d.data() as User);
       callback(items);
     },
-    (err) => console.error('Error listening to users:', err)
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, USERS_COL);
+    }
   );
 };
 
@@ -251,40 +328,68 @@ export const subscribeToUsers = (callback: (users: User[]) => void) => {
 
 // Products
 export const syncSaveProduct = async (product: Product) => {
-  const clean = sanitizeForFirestore(product);
-  await setDoc(doc(db, PRODUCTS_COL, product.id), clean);
+  try {
+    const clean = sanitizeForFirestore(product);
+    await setDoc(doc(db, PRODUCTS_COL, product.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${PRODUCTS_COL}/${product.id}`);
+  }
 };
 
 export const syncDeleteProduct = async (productId: string) => {
-  await deleteDoc(doc(db, PRODUCTS_COL, productId));
+  try {
+    await deleteDoc(doc(db, PRODUCTS_COL, productId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${PRODUCTS_COL}/${productId}`);
+  }
 };
 
 export const syncAdjustStock = async (productId: string, newStock: number) => {
-  await updateDoc(doc(db, PRODUCTS_COL, productId), { stock: newStock });
+  try {
+    await updateDoc(doc(db, PRODUCTS_COL, productId), { stock: newStock });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${PRODUCTS_COL}/${productId}`);
+  }
 };
 
 // Categories
 export const syncSaveCategory = async (category: Category) => {
-  const clean = sanitizeForFirestore(category);
-  await setDoc(doc(db, CATEGORIES_COL, category.id), clean);
+  try {
+    const clean = sanitizeForFirestore(category);
+    await setDoc(doc(db, CATEGORIES_COL, category.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${CATEGORIES_COL}/${category.id}`);
+  }
 };
 
 export const syncDeleteCategory = async (categoryId: string) => {
-  await deleteDoc(doc(db, CATEGORIES_COL, categoryId));
+  try {
+    await deleteDoc(doc(db, CATEGORIES_COL, categoryId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${CATEGORIES_COL}/${categoryId}`);
+  }
 };
 
 // Orders
 export const syncSaveOrder = async (order: Order) => {
-  const clean = sanitizeForFirestore(order);
-  await setDoc(doc(db, ORDERS_COL, order.id), clean);
+  try {
+    const clean = sanitizeForFirestore(order);
+    await setDoc(doc(db, ORDERS_COL, order.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${ORDERS_COL}/${order.id}`);
+  }
 };
 
 export const syncUpdateRiderLocation = async (orderId: string, location: any) => {
-  const clean = sanitizeForFirestore(location);
-  await updateDoc(doc(db, ORDERS_COL, orderId), {
-    riderLocation: clean,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    const clean = sanitizeForFirestore(location);
+    await updateDoc(doc(db, ORDERS_COL, orderId), {
+      riderLocation: clean,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${ORDERS_COL}/${orderId}`);
+  }
 };
 
 export const syncUpdateOrderStatus = async (
@@ -293,56 +398,92 @@ export const syncUpdateOrderStatus = async (
   timeline: any[],
   mpesaDetails?: any
 ) => {
-  const updatePayload: any = {
-    status,
-    timeline: sanitizeForFirestore(timeline),
-    updatedAt: new Date().toISOString(),
-  };
-  if (mpesaDetails) {
-    updatePayload.mpesaDetails = sanitizeForFirestore(mpesaDetails);
-    updatePayload.paymentStatus = 'completed';
+  try {
+    const updatePayload: any = {
+      status,
+      timeline: sanitizeForFirestore(timeline),
+      updatedAt: new Date().toISOString(),
+    };
+    if (mpesaDetails) {
+      updatePayload.mpesaDetails = sanitizeForFirestore(mpesaDetails);
+      updatePayload.paymentStatus = 'completed';
+    }
+    await updateDoc(doc(db, ORDERS_COL, orderId), updatePayload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${ORDERS_COL}/${orderId}`);
   }
-  await updateDoc(doc(db, ORDERS_COL, orderId), updatePayload);
 };
 
 // Promo Codes
 export const syncSavePromoCode = async (promo: PromoCode) => {
-  const clean = sanitizeForFirestore(promo);
-  await setDoc(doc(db, PROMOS_COL, promo.id), clean);
+  try {
+    const clean = sanitizeForFirestore(promo);
+    await setDoc(doc(db, PROMOS_COL, promo.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${PROMOS_COL}/${promo.id}`);
+  }
 };
 
 export const syncTogglePromoCode = async (promoId: string, isActive: boolean) => {
-  await updateDoc(doc(db, PROMOS_COL, promoId), { isActive });
+  try {
+    await updateDoc(doc(db, PROMOS_COL, promoId), { isActive });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `${PROMOS_COL}/${promoId}`);
+  }
 };
 
 // Settings
 export const syncSaveSettings = async (settings: SiteSettings) => {
-  const clean = sanitizeForFirestore(settings);
-  await setDoc(doc(db, SETTINGS_COL, 'main'), clean);
+  try {
+    const clean = sanitizeForFirestore(settings);
+    await setDoc(doc(db, SETTINGS_COL, 'main'), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${SETTINGS_COL}/main`);
+  }
 };
 
 // Audit Logs
 export const syncSaveAuditLog = async (log: AuditLog) => {
-  const clean = sanitizeForFirestore(log);
-  await setDoc(doc(db, AUDIT_COL, log.id), clean);
+  try {
+    const clean = sanitizeForFirestore(log);
+    await setDoc(doc(db, AUDIT_COL, log.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${AUDIT_COL}/${log.id}`);
+  }
 };
 
 // Users
 export const syncSaveUser = async (user: User) => {
-  const clean = sanitizeForFirestore(user);
-  await setDoc(doc(db, USERS_COL, user.id), clean);
+  try {
+    const clean = sanitizeForFirestore(user);
+    await setDoc(doc(db, USERS_COL, user.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${USERS_COL}/${user.id}`);
+  }
 };
 
 export const syncDeleteUser = async (userId: string) => {
-  await deleteDoc(doc(db, USERS_COL, userId));
+  try {
+    await deleteDoc(doc(db, USERS_COL, userId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${USERS_COL}/${userId}`);
+  }
 };
 
 // Reviews
 export const syncSaveReview = async (review: ProductReview) => {
-  const clean = sanitizeForFirestore(review);
-  await setDoc(doc(db, REVIEWS_COL, review.id), clean);
+  try {
+    const clean = sanitizeForFirestore(review);
+    await setDoc(doc(db, REVIEWS_COL, review.id), clean);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `${REVIEWS_COL}/${review.id}`);
+  }
 };
 
 export const syncDeleteReview = async (reviewId: string) => {
-  await deleteDoc(doc(db, REVIEWS_COL, reviewId));
+  try {
+    await deleteDoc(doc(db, REVIEWS_COL, reviewId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `${REVIEWS_COL}/${reviewId}`);
+  }
 };

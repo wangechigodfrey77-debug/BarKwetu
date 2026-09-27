@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
-import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike, ShoppingBag, Sparkles } from 'lucide-react';
+import { X, Lock, Mail, User, Phone, Shield, ArrowRight, Bike, ShoppingBag, Sparkles, Coins, Gift } from 'lucide-react';
 import { formatKES } from '../utils/formatters';
 
 export const AuthModal: React.FC = () => {
@@ -18,6 +18,7 @@ export const AuthModal: React.FC = () => {
     authModalInitialMode,
     cart,
     cartTotal,
+    openProfileModal,
   } = useStore();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -129,11 +130,37 @@ export const AuthModal: React.FC = () => {
               {currentUser.fullName}
             </h3>
             <p className="text-xs text-zinc-400 mb-2">{currentUser.email}</p>
-            <div className="inline-block px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30 mb-6">
-              Role: {currentUser.role}
+            <div className="flex items-center justify-center gap-2 mb-5">
+              <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30 font-mono">
+                {currentUser.loyaltyTier || 'Bronze'} Member
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/40 font-mono">
+                <Coins className="w-3 h-3 text-[#d4af37]" />
+                {currentUser.kwetuCoins ?? 0} Kwetu Coins
+              </span>
             </div>
 
             <div className="space-y-3">
+              {/* Open Loyalty Wallet & Rewards Hub CTA */}
+              <button
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  openProfileModal('coins');
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#181924] to-[#12131a] border border-[#d4af37]/50 hover:border-[#d4af37] text-white font-bold text-xs transition-all flex items-center justify-between cursor-pointer shadow-md shadow-black/40 group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#d4af37]">
+                    <Gift className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-white text-xs font-bold">Kwetu Coins Loyalty Wallet</p>
+                    <p className="text-[10px] text-zinc-400">View balance & redeem discount vouchers</p>
+                  </div>
+                </div>
+                <span className="text-[#d4af37] group-hover:translate-x-1 transition-transform">→</span>
+              </button>
+
               {cart.length > 0 && (
                 <button
                   onClick={() => {

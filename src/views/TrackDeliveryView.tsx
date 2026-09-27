@@ -309,7 +309,7 @@ export const TrackDeliveryView: React.FC = () => {
               <div className="space-y-2">
                 {searchedOrder.items.map((item, idx) => (
                   <div
-                    key={idx}
+                    key={`${item.productId}-${idx}`}
                     className="flex items-center justify-between p-3 bg-[#0d0e12] border border-zinc-800 rounded-lg text-xs"
                   >
                     <div className="flex items-center gap-3">

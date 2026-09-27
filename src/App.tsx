@@ -7,6 +7,7 @@ import { AgeGateModal } from './components/AgeGateModal';
 import { ProductQuickViewModal } from './components/ProductQuickViewModal';
 import { CartDrawer } from './components/CartDrawer';
 import { AuthModal } from './components/AuthModal';
+import { CustomerProfileModal } from './components/CustomerProfileModal';
 import { PalPlussMpesaModal } from './components/PalPlussMpesaModal';
 import { ToastContainer } from './components/Toast';
 import { GridRise } from './components/GridRise';
@@ -56,6 +57,7 @@ const MainLayout: React.FC = () => {
         <ProductQuickViewModal />
         <CartDrawer />
         <AuthModal />
+        <CustomerProfileModal />
         <PalPlussMpesaModal />
         <ToastContainer />
       </div>

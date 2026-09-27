@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike } from 'lucide-react';
+import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins, Sparkles } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const {
@@ -12,9 +12,11 @@ export const Header: React.FC = () => {
     setIsAuthModalOpen,
     setSelectedCategorySlug,
     settings,
+    openProfileModal,
   } = useStore();
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const userCoins = currentUser?.kwetuCoins ?? 0;
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0d0e12]/90 backdrop-blur-md border-b border-zinc-800/80">
@@ -145,7 +147,7 @@ export const Header: React.FC = () => {
             <PackageCheck className="w-5 h-5" />
           </button>
 
-          {/* User Account / Admin / Rider Button */}
+          {/* User Account / Loyalty / Admin / Rider Button */}
           {currentUser ? (
             currentUser.role === 'admin' || currentUser.role === 'superadmin' ? (
               <button
@@ -165,13 +167,27 @@ export const Header: React.FC = () => {
                 <span>Rider App</span>
               </button>
             ) : (
-              <button
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <UserIcon className="w-3.5 h-3.5 text-[#d4af37]" />
-                <span className="max-w-[80px] truncate">{currentUser.fullName.split(' ')[0]}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {/* Kwetu Coins Pill */}
+                <button
+                  onClick={() => openProfileModal('coins')}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37]/15 to-amber-900/20 border border-[#d4af37]/40 hover:border-[#d4af37] text-[#d4af37] text-xs font-bold font-mono transition-all cursor-pointer shadow-sm"
+                  title="Kwetu Coins Balance & Rewards Hub"
+                >
+                  <Coins className="w-3.5 h-3.5 animate-pulse" />
+                  <span>{userCoins.toLocaleString()}</span>
+                  <span className="text-[10px] uppercase font-sans tracking-wide text-zinc-300">Coins</span>
+                </button>
+
+                {/* Profile Button */}
+                <button
+                  onClick={() => openProfileModal('coins')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white border border-zinc-700/60 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <UserIcon className="w-3.5 h-3.5 text-[#d4af37]" />
+                  <span className="max-w-[90px] truncate">{currentUser.fullName.split(' ')[0]}</span>
+                </button>
+              </div>
             )
           ) : (
             <button

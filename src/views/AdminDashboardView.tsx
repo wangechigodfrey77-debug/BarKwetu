@@ -920,8 +920,8 @@ export const AdminDashboardView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/60">
-                    {orders.slice(0, 5).map((o) => (
-                      <tr key={o.id} className="hover:bg-[#161822] transition-colors">
+                    {orders.slice(0, 5).map((o, idx) => (
+                      <tr key={`${o.id}-${idx}`} className="hover:bg-[#161822] transition-colors">
                         <td className="py-3 font-mono font-semibold text-white">{o.orderNumber}</td>
                         <td className="py-3">
                           <p className="font-medium text-zinc-200">{o.userName}</p>
@@ -1014,8 +1014,8 @@ export const AdminDashboardView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/60">
-                    {products.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#161822] transition-colors">
+                    {products.map((p, idx) => (
+                      <tr key={`${p.id}-${idx}`} className="hover:bg-[#161822] transition-colors">
                         <td className="p-4 flex items-center gap-3">
                           <div className="w-12 h-12 bg-[#090a0d] rounded-lg p-1 flex items-center justify-center shrink-0">
                             <img src={p.images[0]} alt={p.name} className="max-h-full max-w-full object-contain" />
@@ -1144,9 +1144,9 @@ export const AdminDashboardView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((c) => (
+              {categories.map((c, idx) => (
                 <div
-                  key={c.id}
+                  key={`${c.id}-${idx}`}
                   className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between"
                 >
                   <div>
@@ -1231,9 +1231,9 @@ export const AdminDashboardView: React.FC = () => {
             <div className="space-y-4">
               {orders
                 .filter((o) => orderFilterStatus === 'all' || o.status === orderFilterStatus)
-                .map((order) => (
+                .map((order, idx) => (
                   <div
-                    key={order.id}
+                    key={`${order.id}-${idx}`}
                     className="bg-[#121318] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4"
                   >
                     {/* Header */}
@@ -1328,8 +1328,8 @@ export const AdminDashboardView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {promoCodes.map((p) => (
-                <div key={p.id} className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 space-y-3">
+              {promoCodes.map((p, idx) => (
+                <div key={`${p.id}-${idx}`} className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-lg text-white bg-[#090a0d] px-3 py-1 rounded-lg border border-zinc-800">
                       {p.code}
@@ -1459,8 +1459,8 @@ export const AdminDashboardView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
-                  {adminUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-[#161822]">
+                  {adminUsers.map((u, idx) => (
+                    <tr key={`${u.id}-${idx}`} className="hover:bg-[#161822]">
                       <td className="p-4">
                         <p className="font-semibold text-white">{u.fullName}</p>
                         {u.bikeRegistration && (
@@ -1807,10 +1807,10 @@ export const AdminDashboardView: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/60">
-                      {reviews.map((rev) => {
+                      {reviews.map((rev, idx) => {
                         const prod = products.find((p) => p.id === rev.productId);
                         return (
-                          <tr key={rev.id} className="hover:bg-[#161822]">
+                          <tr key={`${rev.id}-${idx}`} className="hover:bg-[#161822]">
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 {prod?.images?.[0] ? (
@@ -1913,8 +1913,8 @@ export const AdminDashboardView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
-                  {auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#161822]">
+                  {auditLogs.map((log, idx) => (
+                    <tr key={`${log.id}-${idx}`} className="hover:bg-[#161822]">
                       <td className="p-4 font-mono text-zinc-400 text-[11px]">
                         {formatDateTime(log.timestamp)}
                       </td>
@@ -2155,7 +2155,7 @@ export const AdminDashboardView: React.FC = () => {
                   <div className="flex flex-wrap gap-1.5">
                     {PRESET_SPIRIT_IMAGES.map((preset, idx) => (
                       <button
-                        key={idx}
+                        key={`${preset.url}-${idx}`}
                         type="button"
                         onClick={() => handleSelectPresetProductImage(preset.url)}
                         className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-[#d4af37]/10 hover:border-[#d4af37]/50 border border-zinc-800 text-zinc-300 text-[11px] transition-all flex items-center gap-1.5 cursor-pointer"
@@ -2176,7 +2176,7 @@ export const AdminDashboardView: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {productForm.images.map((imgUrl, index) => (
                         <div
-                          key={index}
+                          key={`${imgUrl}-${index}`}
                           className={`relative group rounded-xl overflow-hidden border p-1.5 bg-[#090a0d] flex flex-col justify-between ${
                             index === 0 ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-zinc-800'
                           }`}
@@ -2553,7 +2553,7 @@ export const AdminDashboardView: React.FC = () => {
                 <h4 className="font-semibold text-zinc-300 mb-2">Order Items:</h4>
                 <div className="space-y-2">
                   {selectedOrderDetails.items.map((i: any, idx: number) => (
-                    <div key={idx} className="flex justify-between p-2 bg-[#161822] rounded-lg">
+                    <div key={`${i.product?.id || idx}-${idx}`} className="flex justify-between p-2 bg-[#161822] rounded-lg">
                       <span>{i.quantity} × {i.productName} ({i.volume})</span>
                       <span className="font-bold tabular-nums">{formatKES(i.price * i.quantity)}</span>
                     </div>

@@ -12,6 +12,8 @@ import {
   ShippingAddress,
   RiderLocation,
   ProductReview,
+  LoyaltyTier,
+  KwetuCoinTransaction,
 } from '../types';
 import {
   INITIAL_CATEGORIES,
@@ -27,6 +29,7 @@ import {
 import { generateOrderNumber, formatKES } from '../utils/formatters';
 import { playNewOrderAlertSound } from '../utils/audioAlerts';
 import { resolveCoordinatesForAddress, STORE_HUB_LOCATION } from '../utils/kenyaLocations';
+import { LOYALTY_REWARDS, calculateTier, getTierMultiplier } from '../utils/loyaltyUtils';
 import {
   seedFirestoreIfEmpty,
   subscribeToProducts,
@@ -185,6 +188,16 @@ interface StoreContextType {
   }) => Promise<{ success: boolean; message?: string }>;
   deleteReview: (reviewId: string) => Promise<{ success: boolean }>;
 
+  // Loyalty Points & Kwetu Coins Wallet
+  isProfileModalOpen: boolean;
+  setIsProfileModalOpen: (open: boolean) => void;
+  openProfileModal: (tab?: 'coins' | 'orders' | 'profile') => void;
+  profileActiveTab: 'coins' | 'orders' | 'profile';
+  setProfileActiveTab: (tab: 'coins' | 'orders' | 'profile') => void;
+  awardKwetuCoins: (userId: string, amount: number, description: string, orderNumber?: string) => void;
+  redeemLoyaltyReward: (rewardId: string) => Promise<{ success: boolean; message: string; promoCode?: string }>;
+  updateUserProfile: (updates: Partial<User>) => Promise<{ success: boolean; message?: string }>;
+
   // Sound & Notifications
   soundAlertsEnabled: boolean;
   setSoundAlertsEnabled: (enabled: boolean) => void;
@@ -209,6 +222,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authRedirectIntent, setAuthRedirectIntent] = useState<string | null>(null);
   const [authModalInitialMode, setAuthModalInitialMode] = useState<'signin' | 'signup'>('signin');
+
+  // Customer Profile & Loyalty Modal
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileActiveTab, setProfileActiveTab] = useState<'coins' | 'orders' | 'profile'>('coins');
+
+  const openProfileModal = (tab: 'coins' | 'orders' | 'profile' = 'coins') => {
+    setProfileActiveTab(tab);
+    setIsProfileModalOpen(true);
+  };
 
   const openAuthModal = (mode: 'signin' | 'signup' = 'signin', intent: string | null = null) => {
     setAuthModalInitialMode(mode);
@@ -957,13 +979,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loginWithGoogle = async () => {
     // Google Sign-In Simulation with realistic customer identity
-    const googleUser: User = {
+    const existing = adminUsers.find((u) => u.email.toLowerCase() === 'gmaurice101@gmail.com');
+    const googleUser: User = existing || {
       id: 'google-usr-' + Date.now(),
       email: 'gmaurice101@gmail.com',
       username: 'gmaurice',
       fullName: 'Maurice G.',
       phone: '+254712345678',
       role: 'customer',
+      kwetuCoins: 380,
+      lifetimeCoinsEarned: 580,
+      loyaltyTier: 'Silver',
+      defaultCounty: 'Nyeri',
+      defaultTown: 'Karatina CBD / Commercial Street',
+      defaultAddress: 'Commercial Street, Opp. Karatina Open Air Market',
+      coinsHistory: [
+        {
+          id: 'tx-welcome-1',
+          userId: 'google-usr-1',
+          amount: 100,
+          type: 'welcome_bonus',
+          description: '🎉 Welcome to BarKwetu Reserve Loyalty',
+          timestamp: '2026-03-01T00:00:00.000Z',
+        },
+      ],
       createdAt: new Date().toISOString(),
     };
     setCurrentUser(googleUser);
@@ -990,14 +1029,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     password: string;
     phone?: string;
   }) => {
+    const welcomeTx: KwetuCoinTransaction = {
+      id: `tx-welcome-${Date.now()}`,
+      userId: `usr-${Date.now()}`,
+      amount: 100,
+      type: 'welcome_bonus',
+      description: '🎉 100 Kwetu Coins Welcome Gift',
+      timestamp: new Date().toISOString(),
+    };
+
     const newUser: User = {
-      id: `usr-${Date.now()}`,
+      id: welcomeTx.userId,
       email: data.email.trim(),
       username: data.username.trim(),
       fullName: data.fullName.trim(),
       password: data.password,
       phone: data.phone?.trim(),
       role: 'customer',
+      kwetuCoins: 100,
+      lifetimeCoinsEarned: 100,
+      loyaltyTier: 'Bronze',
+      coinsHistory: [welcomeTx],
       createdAt: new Date().toISOString(),
     };
     setCurrentUser(newUser);
@@ -1007,9 +1059,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (authRedirectIntent === 'checkout') {
       setActiveView('checkout');
       setAuthRedirectIntent(null);
-      showToast(`Account created! Welcome, ${newUser.fullName}. Proceeding directly to checkout.`, 'success');
+      showToast(`Account created! +100 Welcome Kwetu Coins credited 🎉. Proceeding to checkout.`, 'success');
     } else {
-      showToast(`Account created! Welcome, ${newUser.fullName}.`, 'success');
+      showToast(`Account created! +100 Kwetu Coins welcome bonus credited to your wallet 🎉`, 'success');
     }
     return { success: true };
   };
@@ -1188,6 +1240,140 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     syncDeleteUser(id).catch((e) => console.warn('Admin user delete sync:', e));
     logAdminAction('DELETE_ACCOUNT', `Deleted user account: ${target?.username}`);
     showToast('Account removed.', 'info');
+  };
+
+  // ================= Kwetu Coins Loyalty System =================
+
+  const awardKwetuCoins = (userId: string, amount: number, description: string, orderNumber?: string) => {
+    if (amount <= 0) return;
+    const targetUser = adminUsers.find((u) => u.id === userId) || (currentUser?.id === userId ? currentUser : null);
+    if (!targetUser) return;
+
+    const currentCoins = targetUser.kwetuCoins || 0;
+    const currentLifetime = targetUser.lifetimeCoinsEarned || currentCoins;
+    const newCoins = currentCoins + amount;
+    const newLifetime = currentLifetime + amount;
+    const newTier = calculateTier(newLifetime);
+
+    const newTx: KwetuCoinTransaction = {
+      id: `tx-earn-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      userId: targetUser.id,
+      amount,
+      type: 'earned_purchase',
+      description,
+      orderNumber,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedUser: User = {
+      ...targetUser,
+      kwetuCoins: newCoins,
+      lifetimeCoinsEarned: newLifetime,
+      loyaltyTier: newTier,
+      coinsHistory: [newTx, ...(targetUser.coinsHistory || [])],
+    };
+
+    if (currentUser?.id === userId) {
+      setCurrentUser(updatedUser);
+    }
+    setAdminUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+    syncSaveUser(updatedUser).catch((e) => console.warn('Award coins sync:', e));
+  };
+
+  const redeemLoyaltyReward = async (
+    rewardId: string
+  ): Promise<{ success: boolean; message: string; promoCode?: string }> => {
+    if (!currentUser) {
+      showToast('Please sign in to redeem Kwetu Coins.', 'error');
+      openAuthModal('signin');
+      return { success: false, message: 'Please sign in.' };
+    }
+
+    const reward = LOYALTY_REWARDS.find((r) => r.id === rewardId);
+    if (!reward) {
+      showToast('Reward option not found.', 'error');
+      return { success: false, message: 'Reward option not found.' };
+    }
+
+    const userCoins = currentUser.kwetuCoins || 0;
+    if (userCoins < reward.coinCost) {
+      const shortage = reward.coinCost - userCoins;
+      showToast(`Insufficient Kwetu Coins! You need ${shortage} more coins to unlock this voucher.`, 'error');
+      return { success: false, message: `Short by ${shortage} coins.` };
+    }
+
+    // Generate unique Promo Voucher
+    const codePrefix = reward.discountType === 'free_delivery' ? 'FREESHIP' : `KWETU${reward.discountValue}`;
+    const codeSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const generatedCode = `${codePrefix}-${codeSuffix}`;
+
+    // 1. Create and activate promo code in store
+    const newPromo: PromoCode = {
+      id: `promo-reward-${Date.now()}`,
+      code: generatedCode,
+      discountType: 'fixed',
+      discountValue: reward.discountValue,
+      minOrderValue: reward.minSpend,
+      expiryDate: new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0],
+      usageLimit: 1,
+      timesUsed: 0,
+      isActive: true,
+    };
+
+    addPromoCode(newPromo);
+
+    // 2. Deduct coins and log ledger transaction
+    const newTx: KwetuCoinTransaction = {
+      id: `tx-red-${Date.now()}`,
+      userId: currentUser.id,
+      amount: -reward.coinCost,
+      type: reward.discountType === 'free_delivery' ? 'redeemed_delivery' : 'redeemed_discount',
+      description: `Redeemed ${reward.coinCost} Kwetu Coins for ${reward.title} (${generatedCode})`,
+      promoCodeGenerated: generatedCode,
+      timestamp: new Date().toISOString(),
+    };
+
+    const remainingCoins = userCoins - reward.coinCost;
+    const updatedHistory = [newTx, ...(currentUser.coinsHistory || [])];
+
+    const updatedUser: User = {
+      ...currentUser,
+      kwetuCoins: remainingCoins,
+      coinsHistory: updatedHistory,
+    };
+
+    setCurrentUser(updatedUser);
+    setAdminUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+    syncSaveUser(updatedUser).catch((e) => console.warn('Sync user after coin redemption:', e));
+
+    // Try to auto-copy to clipboard
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(generatedCode);
+      } catch {
+        // ignore clipboard error
+      }
+    }
+
+    showToast(`🎉 Redeemed! Promo code "${generatedCode}" generated and copied to clipboard.`, 'success');
+    return {
+      success: true,
+      message: `Redeemed! Voucher code: ${generatedCode}`,
+      promoCode: generatedCode,
+    };
+  };
+
+  const updateUserProfile = async (updates: Partial<User>): Promise<{ success: boolean; message?: string }> => {
+    if (!currentUser) return { success: false, message: 'No user signed in' };
+    const updatedUser: User = {
+      ...currentUser,
+      ...updates,
+    };
+    setCurrentUser(updatedUser);
+    setAdminUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+    syncSaveUser(updatedUser).catch((e) => console.warn('Update user profile sync:', e));
+    showToast('Profile and delivery details updated successfully.', 'success');
+    return { success: true };
   };
 
   // Orders & Checkout
@@ -1451,40 +1637,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
 
       // Update Order to PAID
-      let updatedPaidOrder: Order | null = null;
+      const nowIso = new Date().toISOString();
+      const updatedTimeline = currentOrder.trackingTimeline.map((step) => {
+        if (step.status === 'pending' || step.status === 'paid') {
+          return { ...step, completed: true, timestamp: nowIso };
+        }
+        return step;
+      });
+      const updatedPaidOrder: Order = {
+        ...currentOrder,
+        status: 'paid',
+        paymentStatus: 'completed',
+        mpesaDetails: {
+          ...currentOrder.mpesaDetails,
+          receiptNumber: receipt,
+          paidAt: nowIso,
+          statusMessage: 'Payment received successfully via PalPluss STK Push',
+        },
+        trackingTimeline: updatedTimeline,
+        updatedAt: nowIso,
+      };
+
       setOrders((prev) =>
-        prev.map((o) => {
-          if (o.id === currentOrder.id || o.orderNumber === currentOrder.orderNumber) {
-            const nowIso = new Date().toISOString();
-            const updatedTimeline = o.trackingTimeline.map((step) => {
-              if (step.status === 'pending' || step.status === 'paid') {
-                return { ...step, completed: true, timestamp: nowIso };
-              }
-              return step;
-            });
-            const updatedOrder: Order = {
-              ...o,
-              status: 'paid',
-              paymentStatus: 'completed',
-              mpesaDetails: {
-                ...o.mpesaDetails,
-                receiptNumber: receipt,
-                paidAt: nowIso,
-                statusMessage: 'Payment received successfully via PalPluss STK Push',
-              },
-              trackingTimeline: updatedTimeline,
-              updatedAt: nowIso,
-            };
-            updatedPaidOrder = updatedOrder;
-            syncSaveOrder(updatedOrder).catch((e) => console.warn('Paid order sync error:', e));
-            return updatedOrder;
-          }
-          return o;
-        })
+        prev.map((o) => (o.id === currentOrder.id || o.orderNumber === currentOrder.orderNumber ? updatedPaidOrder : o))
       );
 
-      if (updatedPaidOrder) {
-        setCurrentOrder(updatedPaidOrder);
+      setCurrentOrder(updatedPaidOrder);
+      syncSaveOrder(updatedPaidOrder).catch((e) => console.warn('Paid order sync error:', e));
+
+      // Award Kwetu Coins for paid purchase
+      const buyerId = updatedPaidOrder.userId || currentUser?.id;
+      if (buyerId) {
+        const userTier = currentUser?.loyaltyTier || 'Bronze';
+        const multiplier = getTierMultiplier(userTier);
+        const earnedCoins = Math.max(1, Math.round((updatedPaidOrder.subtotal / 100) * multiplier));
+        awardKwetuCoins(
+          buyerId,
+          earnedCoins,
+          `Earned from Reserve Order #${updatedPaidOrder.orderNumber} (${formatKES(updatedPaidOrder.total)})`,
+          updatedPaidOrder.orderNumber
+        );
       }
       logAdminAction('PAYMENT_CONFIRMED', `PalPluss M-Pesa payment (${receipt}) received for Order #${currentOrder.orderNumber}`);
 
@@ -1610,6 +1802,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         getProductRatingStats,
         submitProductReview,
         deleteReview,
+
+        // Loyalty Points & Kwetu Coins
+        isProfileModalOpen,
+        setIsProfileModalOpen,
+        openProfileModal,
+        profileActiveTab,
+        setProfileActiveTab,
+        awardKwetuCoins,
+        redeemLoyaltyReward,
+        updateUserProfile,
 
         soundAlertsEnabled,
         setSoundAlertsEnabled,

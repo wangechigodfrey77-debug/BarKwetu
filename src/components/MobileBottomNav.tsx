@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { Store, PackageCheck, Bike, ShoppingBag, User as UserIcon } from 'lucide-react';
+import { Store, PackageCheck, Bike, ShoppingBag, User as UserIcon, Coins } from 'lucide-react';
 
 export const MobileBottomNav: React.FC = () => {
   const {
@@ -10,6 +10,7 @@ export const MobileBottomNav: React.FC = () => {
     setIsCartOpen,
     currentUser,
     setIsAuthModalOpen,
+    openProfileModal,
   } = useStore();
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -63,14 +64,22 @@ export const MobileBottomNav: React.FC = () => {
         )}
       </button>
 
-      {/* Account / Auth */}
+      {/* Account / Kwetu Coins Profile */}
       <button
-        onClick={() => setIsAuthModalOpen(true)}
-        className="flex flex-col items-center gap-1 p-1.5 text-zinc-400 hover:text-[#d4af37] transition-colors cursor-pointer"
+        onClick={() => {
+          if (currentUser) {
+            openProfileModal('coins');
+          } else {
+            setIsAuthModalOpen(true);
+          }
+        }}
+        className={`relative flex flex-col items-center gap-1 p-1.5 transition-colors cursor-pointer ${
+          currentUser ? 'text-[#d4af37]' : 'text-zinc-400 hover:text-[#d4af37]'
+        }`}
       >
-        <UserIcon className="w-5 h-5" />
+        {currentUser ? <Coins className="w-5 h-5 text-[#d4af37]" /> : <UserIcon className="w-5 h-5" />}
         <span className="text-[10px] font-medium">
-          {currentUser ? currentUser.fullName.split(' ')[0] : 'Sign In'}
+          {currentUser ? `${currentUser.kwetuCoins ?? 0} Coins` : 'Sign In'}
         </span>
       </button>
     </div>

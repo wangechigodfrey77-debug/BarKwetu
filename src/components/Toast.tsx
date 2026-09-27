@@ -9,9 +9,9 @@ export const ToastContainer: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-      {toasts.map((t) => (
+      {toasts.map((t, idx) => (
         <div
-          key={t.id}
+          key={`${t.id}-${idx}`}
           className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-slide-up ${
             t.type === 'error'
               ? 'bg-rose-950/90 border-rose-800/80 text-rose-100'

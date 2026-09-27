@@ -665,9 +665,9 @@ export const RiderAppView: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {availableOrders.map((order) => (
+                {availableOrders.map((order, idx) => (
                   <div
-                    key={order.id}
+                    key={`${order.id}-${idx}`}
                     className="bg-[#121318] border border-zinc-800 hover:border-zinc-700 rounded-2xl p-5 shadow-xl space-y-4 transition-all"
                   >
                     <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
@@ -831,7 +831,7 @@ export const RiderAppView: React.FC = () => {
                       </div>
                       <ul className="space-y-1.5 text-xs max-h-36 overflow-y-auto pr-1">
                         {selectedOrder.items.map((item, idx) => (
-                          <li key={idx} className="flex justify-between items-center text-zinc-300">
+                          <li key={`${item.productId}-${idx}`} className="flex justify-between items-center text-zinc-300">
                             <span>
                               {item.quantity}× {item.productName} ({item.volume})
                             </span>
@@ -904,9 +904,9 @@ export const RiderAppView: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {myCompletedOrders.map((ord) => (
+                {myCompletedOrders.map((ord, idx) => (
                   <div
-                    key={ord.id}
+                    key={`${ord.id}-${idx}`}
                     className="bg-[#121318] border border-zinc-800 rounded-2xl p-5 space-y-3"
                   >
                     <div className="flex justify-between items-center pb-2 border-b border-zinc-800">

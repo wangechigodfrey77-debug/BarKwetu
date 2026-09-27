@@ -3,6 +3,7 @@ import { useStore } from '../context/StoreContext';
 import { KENYA_COUNTIES } from '../data/kenyaLocations';
 import { formatKES } from '../utils/formatters';
 import { ShippingAddress } from '../types';
+import { getTierMultiplier } from '../utils/loyaltyUtils';
 import {
   ShieldCheck,
   Truck,
@@ -13,6 +14,9 @@ import {
   FileText,
   User as UserIcon,
   ShoppingBag,
+  Coins,
+  Gift,
+  Ticket,
 } from 'lucide-react';
 
 export const CheckoutView: React.FC = () => {
@@ -30,6 +34,7 @@ export const CheckoutView: React.FC = () => {
     initiatePalPlussPayment,
     openAuthModal,
     loginWithGoogle,
+    openProfileModal,
   } = useStore();
 
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
@@ -416,11 +421,11 @@ export const CheckoutView: React.FC = () => {
 
               {/* Items List */}
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1 mb-4">
-                {cart.map((item) => {
+                {cart.map((item, idx) => {
                   const effectivePrice = item.product.salePrice ?? item.product.price;
                   return (
                     <div
-                      key={item.product.id}
+                      key={`${item.product.id}-${idx}`}
                       className="flex items-center justify-between gap-3 text-xs pb-3 border-b border-zinc-800/60"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -471,6 +476,31 @@ export const CheckoutView: React.FC = () => {
                   <span>Total Amount</span>
                   <span className="text-lg text-[#d4af37] tabular-nums">{formatKES(cartTotal)}</span>
                 </div>
+              </div>
+
+              {/* Kwetu Coins Loyalty Earning Notice */}
+              <div className="mt-4 p-3 bg-gradient-to-r from-[#181924] to-[#12131a] border border-[#d4af37]/30 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#d4af37] shrink-0">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-white font-semibold flex items-center gap-1">
+                      Earn <strong className="text-[#d4af37] font-mono">+{Math.max(1, Math.round((cartSubtotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze')))} Kwetu Coins</strong>
+                    </span>
+                    <p className="text-[10px] text-zinc-400">Credited automatically upon M-Pesa payment confirmation</p>
+                  </div>
+                </div>
+
+                {currentUser && (
+                  <button
+                    type="button"
+                    onClick={() => openProfileModal('coins')}
+                    className="text-[10px] text-[#d4af37] hover:underline font-bold px-2 py-1 rounded bg-[#d4af37]/10 border border-[#d4af37]/25 shrink-0"
+                  >
+                    Wallet ({currentUser.kwetuCoins ?? 0})
+                  </button>
+                )}
               </div>
 
               {/* Submit CTA Button */}
