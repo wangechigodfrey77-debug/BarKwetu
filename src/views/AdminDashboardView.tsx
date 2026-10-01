@@ -3,6 +3,7 @@ import { useStore } from '../context/StoreContext';
 import { Product, Category, PromoCode, OrderStatus, User } from '../types';
 import { formatKES, formatDateTime, formatKenyanPhone } from '../utils/formatters';
 import { FleetTrackerTab } from '../components/admin/FleetTrackerTab';
+import { ReportsTab } from '../components/admin/ReportsTab';
 import {
   Shield,
   Package,
@@ -32,6 +33,9 @@ import {
   Volume2,
   VolumeX,
   Bell,
+  BarChart3,
+  FileSpreadsheet,
+  TrendingUp,
 } from 'lucide-react';
 
 const PRESET_SPIRIT_IMAGES = [
@@ -48,6 +52,7 @@ const PRESET_SPIRIT_IMAGES = [
 
 type AdminTab =
   | 'overview'
+  | 'reports'
   | 'products'
   | 'categories'
   | 'orders'
@@ -592,7 +597,24 @@ export const AdminDashboardView: React.FC = () => {
               }`}
             >
               <Activity className="w-4 h-4" />
-              <span>Overview & Analytics</span>
+              <span>Overview & Live Feed</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'reports'
+                  ? 'bg-[#d4af37] text-black font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4 text-[#d4af37]" />
+                <span>Reports & Intelligence</span>
+              </div>
+              <span className="px-1.5 py-0.5 bg-[#d4af37]/20 text-[#d4af37] text-[9px] font-bold rounded">
+                NEW
+              </span>
             </button>
 
             <button
@@ -830,14 +852,11 @@ export const AdminDashboardView: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    playAlertSound();
-                    showToast('Testing Order Alert Chime 🔔', 'info');
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-[#d4af37] text-xs font-medium border border-zinc-700 transition-colors cursor-pointer"
-                  title="Test notification chime sound"
+                  onClick={() => setActiveTab('reports')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black text-xs font-bold hover:brightness-110 shadow-sm shadow-[#d4af37]/20 transition-all cursor-pointer"
                 >
-                  Test Chime
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Executive Reports</span>
                 </button>
               </div>
             </div>
@@ -954,6 +973,9 @@ export const AdminDashboardView: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* ================= TAB: EXECUTIVE REPORTS & INTELLIGENCE ================= */}
+        {activeTab === 'reports' && <ReportsTab />}
 
         {/* ================= TAB: PRODUCTS ================= */}
         {activeTab === 'products' && (
@@ -1243,7 +1265,14 @@ export const AdminDashboardView: React.FC = () => {
                           <span className="text-xs text-zinc-400">· {formatDateTime(order.createdAt)}</span>
                         </div>
                         <p className="text-xs text-zinc-400 mt-0.5">
-                          Customer: <strong className="text-white">{order.userName}</strong> ({formatKenyanPhone(order.phone)}) · {order.shippingAddress.exactLocation}, {order.shippingAddress.town}, {order.shippingAddress.county}
+                          Customer: <strong className="text-white">{order.userName}</strong> (
+                          <a
+                            href={`tel:${order.phone.replace(/\s+/g, '')}`}
+                            className="text-[#d4af37] hover:underline font-mono"
+                          >
+                            {formatKenyanPhone(order.phone)}
+                          </a>
+                          ) · {order.shippingAddress.exactLocation}, {order.shippingAddress.town}, {order.shippingAddress.county}
                         </p>
                       </div>
 
@@ -2540,7 +2569,15 @@ export const AdminDashboardView: React.FC = () => {
             <div className="space-y-4 text-xs">
               <div className="p-3 bg-[#0d0e12] rounded-xl border border-zinc-800 space-y-1">
                 <p><strong>Customer:</strong> {selectedOrderDetails.userName}</p>
-                <p><strong>Phone:</strong> {formatKenyanPhone(selectedOrderDetails.phone)}</p>
+                <p>
+                  <strong>Phone:</strong>{' '}
+                  <a
+                    href={`tel:${selectedOrderDetails.phone.replace(/\s+/g, '')}`}
+                    className="text-[#d4af37] hover:underline font-mono"
+                  >
+                    {formatKenyanPhone(selectedOrderDetails.phone)}
+                  </a>
+                </p>
                 <p><strong>Address:</strong> {selectedOrderDetails.shippingAddress.exactLocation}, {selectedOrderDetails.shippingAddress.town}, {selectedOrderDetails.shippingAddress.county}</p>
                 {selectedOrderDetails.shippingAddress.deliveryNotes && (
                   <p><strong>Rider Notes:</strong> {selectedOrderDetails.shippingAddress.deliveryNotes}</p>

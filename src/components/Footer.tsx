@@ -49,14 +49,20 @@ export const Footer: React.FC = () => {
             Kenya&apos;s leading online boutique for fine single malts, reserve rums, artisanal gins, tequila, and craft barware.
           </p>
           <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
-            <span className="flex items-center gap-2">
-              <PhoneCall className="w-3.5 h-3.5 text-[#d4af37]" />
-              {settings.supportPhone}
-            </span>
-            <span className="flex items-center gap-2">
-              <Mail className="w-3.5 h-3.5 text-[#d4af37]" />
-              {settings.supportEmail}
-            </span>
+            <a
+              href={`tel:${settings.supportPhone.replace(/\s+/g, '')}`}
+              className="flex items-center gap-2 hover:text-[#d4af37] transition-colors group cursor-pointer"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-[#d4af37] group-hover:scale-110 transition-transform" />
+              <span className="underline decoration-zinc-800 hover:decoration-[#d4af37] underline-offset-2">{settings.supportPhone}</span>
+            </a>
+            <a
+              href={`mailto:${settings.supportEmail}`}
+              className="flex items-center gap-2 hover:text-[#d4af37] transition-colors group cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#d4af37] group-hover:scale-110 transition-transform" />
+              <span className="underline decoration-zinc-800 hover:decoration-[#d4af37] underline-offset-2">{settings.supportEmail}</span>
+            </a>
           </div>
         </div>
 

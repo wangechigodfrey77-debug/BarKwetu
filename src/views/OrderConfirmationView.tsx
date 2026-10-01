@@ -190,7 +190,14 @@ export const OrderConfirmationView: React.FC = () => {
             <div>
               <p className="text-zinc-500 font-semibold mb-1 uppercase text-[10px]">Recipient</p>
               <p className="font-medium text-white">{currentOrder.shippingAddress.fullName}</p>
-              <p>{formatKenyanPhone(currentOrder.shippingAddress.phone)}</p>
+              <p>
+                <a
+                  href={`tel:${currentOrder.shippingAddress.phone.replace(/\s+/g, '')}`}
+                  className="font-mono text-zinc-300 hover:text-[#d4af37] underline decoration-zinc-700 hover:decoration-[#d4af37] underline-offset-2 transition-colors cursor-pointer"
+                >
+                  {formatKenyanPhone(currentOrder.shippingAddress.phone)}
+                </a>
+              </p>
             </div>
             <div>
               <p className="text-zinc-500 font-semibold mb-1 uppercase text-[10px]">Delivery Address</p>

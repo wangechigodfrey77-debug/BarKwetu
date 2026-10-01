@@ -261,7 +261,20 @@ export const CustomerProfileModal: React.FC = () => {
                   {currentTier} Member
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 truncate mt-0.5">{currentUser.email}</p>
+              <p className="text-xs text-zinc-400 flex items-center gap-2 truncate mt-0.5">
+                <span>{currentUser.email}</span>
+                {currentUser.phone && (
+                  <>
+                    <span className="text-zinc-600">·</span>
+                    <a
+                      href={`tel:${currentUser.phone.replace(/\s+/g, '')}`}
+                      className="text-[#d4af37] hover:underline font-mono"
+                    >
+                      {currentUser.phone}
+                    </a>
+                  </>
+                )}
+              </p>
             </div>
           </div>
 
@@ -752,6 +765,17 @@ export const CustomerProfileModal: React.FC = () => {
                                   {order.mpesaDetails?.receiptNumber || 'Validated STK'}
                                 </strong>
                               </span>
+                              {order.phone && (
+                                <>
+                                  <span className="text-zinc-600">·</span>
+                                  <a
+                                    href={`tel:${order.phone.replace(/\s+/g, '')}`}
+                                    className="text-zinc-400 hover:text-[#d4af37] underline decoration-zinc-700 hover:decoration-[#d4af37] underline-offset-2 font-mono"
+                                  >
+                                    {order.phone}
+                                  </a>
+                                </>
+                              )}
                             </p>
                           </div>
 

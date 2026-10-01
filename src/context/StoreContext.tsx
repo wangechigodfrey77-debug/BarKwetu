@@ -30,6 +30,13 @@ import { generateOrderNumber, formatKES } from '../utils/formatters';
 import { playNewOrderAlertSound } from '../utils/audioAlerts';
 import { resolveCoordinatesForAddress, STORE_HUB_LOCATION } from '../utils/kenyaLocations';
 import { LOYALTY_REWARDS, calculateTier, getTierMultiplier } from '../utils/loyaltyUtils';
+import { auth } from '../firebase/config';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from 'firebase/auth';
 import {
   seedFirestoreIfEmpty,
   subscribeToProducts,
@@ -271,7 +278,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('barkwetu_current_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed?.id === 'user-customer-1' || parsed?.id === 'google-usr-1') {
+          localStorage.removeItem('barkwetu_current_user');
+          return null;
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   });
 
   const [adminUsers, setAdminUsers] = useState<User[]>(() => {
@@ -435,6 +454,55 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubReviews();
     };
   }, []);
+
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser && firebaseUser.email) {
+        const userEmail = firebaseUser.email.toLowerCase().trim();
+        setCurrentUser((prev) => {
+          if (prev && (prev.id === firebaseUser.uid || prev.email.toLowerCase() === userEmail)) {
+            return prev;
+          }
+          const matched = adminUsers.find(
+            (u) => u.email.toLowerCase() === userEmail || u.id === firebaseUser.uid
+          );
+          if (matched) {
+            localStorage.setItem('barkwetu_current_user', JSON.stringify(matched));
+            return matched;
+          }
+
+          const welcomeTx: KwetuCoinTransaction = {
+            id: `tx-welcome-${Date.now()}`,
+            userId: firebaseUser.uid,
+            amount: 100,
+            type: 'welcome_bonus',
+            description: '🎉 100 Kwetu Coins Welcome Gift',
+            timestamp: new Date().toISOString(),
+          };
+
+          const newCustomer: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email!,
+            username: firebaseUser.email!.split('@')[0],
+            fullName: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+            phone: firebaseUser.phoneNumber || '',
+            role: userEmail.includes('admin@barkwetu.co.ke') ? 'superadmin' : 'customer',
+            kwetuCoins: 100,
+            lifetimeCoinsEarned: 100,
+            loyaltyTier: 'Bronze',
+            coinsHistory: [welcomeTx],
+            createdAt: new Date().toISOString(),
+          };
+          localStorage.setItem('barkwetu_current_user', JSON.stringify(newCustomer));
+          syncSaveUser(newCustomer).catch((e) => console.warn('Auth state user sync:', e));
+          return newCustomer;
+        });
+      }
+    });
+
+    return () => unsubAuth();
+  }, [adminUsers]);
 
   // Sync to LocalStorage (Fallback / offline cache)
   useEffect(() => {
@@ -880,12 +948,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     if (matched) {
-      const validPassword = matched.password || (matched.role === 'rider' ? 'rider123' : 'admin123');
+      const validPassword = matched.password || (matched.role === 'rider' ? 'rider123' : matched.role === 'superadmin' ? 'admin123' : 'admin123');
       if (pass !== validPassword && pass !== 'super_override_pass_2026') {
         return { success: false, message: 'Invalid password. Please check your credentials.' };
       }
 
       setCurrentUser(matched);
+      localStorage.setItem('barkwetu_current_user', JSON.stringify(matched));
       setIsAuthModalOpen(false);
       if (matched.role === 'rider') {
         setActiveView('rider');
@@ -919,6 +988,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           createdAt: '2026-01-01T00:00:00.000Z',
         };
         setCurrentUser(adminUser);
+        localStorage.setItem('barkwetu_current_user', JSON.stringify(adminUser));
         setIsAuthModalOpen(false);
         showToast('Welcome Super Admin. Admin dashboard unlocked.', 'success');
         return { success: true };
@@ -942,6 +1012,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           createdAt: '2026-03-01T00:00:00.000Z',
         };
         setCurrentUser(riderUser);
+        localStorage.setItem('barkwetu_current_user', JSON.stringify(riderUser));
         setIsAuthModalOpen(false);
         setActiveView('rider');
         showToast('Rider portal unlocked. Real-time GPS sharing active.', 'success');
@@ -950,76 +1021,86 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, message: 'Incorrect rider password. Default is rider123.' };
     }
 
-    // Customer fallback with generic password length check
-    if (pass.length >= 4) {
-      const customer: User = {
-        id: `user-${Date.now()}`,
-        email: cleanId.includes('@') ? cleanId : `${cleanId}@customer.co.ke`,
-        username: cleanId.split('@')[0],
-        fullName: cleanId.split('@')[0].toUpperCase(),
-        role: 'customer',
-        createdAt: new Date().toISOString(),
-      };
-      setCurrentUser(customer);
-      setAdminUsers((prev) => [...prev, customer]);
-      syncSaveUser(customer).catch((e) => console.warn('Customer user sync:', e));
-      setIsAuthModalOpen(false);
-      if (authRedirectIntent === 'checkout') {
-        setActiveView('checkout');
-        setAuthRedirectIntent(null);
-        showToast(`Welcome to BarKwetu, ${customer.fullName}! Proceeding to checkout.`, 'success');
-      } else {
-        showToast(`Welcome to BarKwetu, ${customer.fullName}!`, 'success');
-      }
-      return { success: true };
-    }
-
-    return { success: false, message: 'Invalid credentials. Password must be at least 4 characters.' };
+    return { success: false, message: 'No account found with this username or email. Please sign up to create your own account.' };
   };
 
   const loginWithGoogle = async () => {
-    // Google Sign-In Simulation with realistic customer identity
-    const existing = adminUsers.find((u) => u.email.toLowerCase() === 'gmaurice101@gmail.com');
-    const googleUser: User = existing || {
-      id: 'google-usr-' + Date.now(),
-      email: 'gmaurice101@gmail.com',
-      username: 'gmaurice',
-      fullName: 'Maurice G.',
-      phone: '+254712345678',
-      role: 'customer',
-      kwetuCoins: 380,
-      lifetimeCoinsEarned: 580,
-      loyaltyTier: 'Silver',
-      defaultCounty: 'Nyeri',
-      defaultTown: 'Karatina CBD / Commercial Street',
-      defaultAddress: 'Commercial Street, Opp. Karatina Open Air Market',
-      coinsHistory: [
-        {
-          id: 'tx-welcome-1',
-          userId: 'google-usr-1',
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      const fbUser = result.user;
+
+      if (!fbUser || !fbUser.email) {
+        throw new Error('Google sign-in did not return a valid email.');
+      }
+
+      const cleanEmail = fbUser.email.toLowerCase().trim();
+      const existing = adminUsers.find(
+        (u) => u.email.toLowerCase() === cleanEmail || u.id === fbUser.uid
+      );
+
+      let targetUser: User;
+      if (existing) {
+        targetUser = {
+          ...existing,
+          email: fbUser.email,
+          fullName: existing.fullName || fbUser.displayName || fbUser.email.split('@')[0],
+          phone: existing.phone || fbUser.phoneNumber || '',
+        };
+      } else {
+        const welcomeTx: KwetuCoinTransaction = {
+          id: `tx-welcome-${Date.now()}`,
+          userId: fbUser.uid,
           amount: 100,
           type: 'welcome_bonus',
-          description: '🎉 Welcome to BarKwetu Reserve Loyalty',
-          timestamp: '2026-03-01T00:00:00.000Z',
-        },
-      ],
-      createdAt: new Date().toISOString(),
-    };
-    setCurrentUser(googleUser);
-    setAdminUsers((prev) => {
-      if (!prev.some((u) => u.id === googleUser.id)) return [...prev, googleUser];
-      return prev;
-    });
-    syncSaveUser(googleUser).catch((e) => console.warn('Google user sync:', e));
-    setIsAuthModalOpen(false);
-    if (authRedirectIntent === 'checkout') {
-      setActiveView('checkout');
-      setAuthRedirectIntent(null);
-      showToast('Signed in with Google! Continuing directly to checkout.', 'success');
-    } else {
-      showToast('Signed in securely with Google Account.', 'success');
+          description: '🎉 100 Kwetu Coins Welcome Gift',
+          timestamp: new Date().toISOString(),
+        };
+
+        targetUser = {
+          id: fbUser.uid,
+          email: fbUser.email,
+          username: fbUser.email.split('@')[0],
+          fullName: fbUser.displayName || fbUser.email.split('@')[0] || 'Customer',
+          phone: fbUser.phoneNumber || '',
+          role: cleanEmail.includes('admin@barkwetu.co.ke') ? 'superadmin' : 'customer',
+          kwetuCoins: 100,
+          lifetimeCoinsEarned: 100,
+          loyaltyTier: 'Bronze',
+          coinsHistory: [welcomeTx],
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      setCurrentUser(targetUser);
+      localStorage.setItem('barkwetu_current_user', JSON.stringify(targetUser));
+      setAdminUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== targetUser.id && u.email.toLowerCase() !== targetUser.email.toLowerCase());
+        return [...filtered, targetUser];
+      });
+      syncSaveUser(targetUser).catch((e) => console.warn('Google user sync:', e));
+      setIsAuthModalOpen(false);
+
+      if (targetUser.role === 'admin' || targetUser.role === 'superadmin') {
+        showToast(`Welcome back, ${targetUser.fullName}!`, 'success');
+      } else if (authRedirectIntent === 'checkout') {
+        setActiveView('checkout');
+        setAuthRedirectIntent(null);
+        showToast(`Welcome, ${targetUser.fullName}! Continuing to checkout.`, 'success');
+      } else {
+        showToast(`Signed in as ${targetUser.fullName} (${targetUser.email})`, 'success');
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.warn('Google Sign-In caught:', err);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        return { success: false, message: 'Google sign-in popup was cancelled.' };
+      }
+      const message = err?.message || 'Google sign-in failed. Please try signing up with email and password.';
+      showToast(message, 'error');
+      return { success: false, message };
     }
-    return { success: true };
   };
 
   const signupWithPassword = async (data: {
@@ -1029,9 +1110,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     password: string;
     phone?: string;
   }) => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanUsername = data.username.trim().toLowerCase();
+
+    // Prevent duplicate accounts
+    const existing = adminUsers.find(
+      (u) => u.email.toLowerCase() === cleanEmail || u.username.toLowerCase() === cleanUsername
+    );
+    if (existing) {
+      return { success: false, message: 'An account with this email or username already exists. Please sign in.' };
+    }
+
+    const userId = `usr-${Date.now()}`;
     const welcomeTx: KwetuCoinTransaction = {
       id: `tx-welcome-${Date.now()}`,
-      userId: `usr-${Date.now()}`,
+      userId,
       amount: 100,
       type: 'welcome_bonus',
       description: '🎉 100 Kwetu Coins Welcome Gift',
@@ -1039,12 +1132,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const newUser: User = {
-      id: welcomeTx.userId,
+      id: userId,
       email: data.email.trim(),
       username: data.username.trim(),
       fullName: data.fullName.trim(),
       password: data.password,
-      phone: data.phone?.trim(),
+      phone: data.phone?.trim() || '',
       role: 'customer',
       kwetuCoins: 100,
       lifetimeCoinsEarned: 100,
@@ -1052,16 +1145,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       coinsHistory: [welcomeTx],
       createdAt: new Date().toISOString(),
     };
+
     setCurrentUser(newUser);
+    localStorage.setItem('barkwetu_current_user', JSON.stringify(newUser));
     setAdminUsers((prev) => [...prev, newUser]);
     syncSaveUser(newUser).catch((e) => console.warn('New customer sync:', e));
     setIsAuthModalOpen(false);
     if (authRedirectIntent === 'checkout') {
       setActiveView('checkout');
       setAuthRedirectIntent(null);
-      showToast(`Account created! +100 Welcome Kwetu Coins credited 🎉. Proceeding to checkout.`, 'success');
+      showToast(`Welcome, ${newUser.fullName}! +100 Welcome Kwetu Coins credited 🎉. Proceeding to checkout.`, 'success');
     } else {
-      showToast(`Account created! +100 Kwetu Coins welcome bonus credited to your wallet 🎉`, 'success');
+      showToast(`Welcome, ${newUser.fullName}! +100 Kwetu Coins welcome bonus credited to your wallet 🎉`, 'success');
     }
     return { success: true };
   };
@@ -1196,8 +1291,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, message: 'Order claimed successfully.' };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // ignore
+    }
     setCurrentUser(null);
+    localStorage.removeItem('barkwetu_current_user');
     if (activeView === 'admin' || activeView === 'rider') {
       setActiveView('store');
     }

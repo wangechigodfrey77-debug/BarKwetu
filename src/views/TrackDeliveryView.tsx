@@ -293,10 +293,26 @@ export const TrackDeliveryView: React.FC = () => {
                   <Phone className="w-3.5 h-3.5" />
                   <span>Contact & Dispatch Support</span>
                 </div>
-                <div className="text-xs text-zinc-300 space-y-1">
-                  <p>Customer Phone: <strong>{formatKenyanPhone(searchedOrder.phone)}</strong></p>
-                  <p className="text-zinc-400">Dispatched from: BarKwetu Central Vault, Nairobi</p>
-                  <p className="text-zinc-400">Support Hotline: +254 700 123 456</p>
+                <div className="text-xs text-zinc-300 space-y-1.5">
+                  <p className="flex items-center gap-1.5">
+                    <span className="text-zinc-400">Customer Phone:</span>
+                    <a
+                      href={`tel:${searchedOrder.phone.replace(/\s+/g, '')}`}
+                      className="font-bold text-white hover:text-[#d4af37] underline decoration-zinc-700 hover:decoration-[#d4af37] underline-offset-2 transition-colors cursor-pointer"
+                    >
+                      {formatKenyanPhone(searchedOrder.phone)}
+                    </a>
+                  </p>
+                  <p className="text-zinc-400">Dispatched from: BarKwetu Central Vault, Karatina</p>
+                  <p className="text-zinc-400 flex items-center gap-1.5">
+                    <span>Support Hotline:</span>
+                    <a
+                      href="tel:+254700123456"
+                      className="font-bold text-[#d4af37] hover:underline underline-offset-2 transition-colors cursor-pointer"
+                    >
+                      +254 700 123 456
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>
