@@ -17,6 +17,7 @@ import {
   BulkInventoryItem,
   BulkInventoryResult,
 } from '../types';
+import { LegalPolicyType } from '../components/legal/LegalPolicyModal';
 import {
   INITIAL_CATEGORIES,
   INITIAL_PRODUCTS,
@@ -98,6 +99,10 @@ interface StoreContextType {
   isAgeGateOpen: boolean;
   ageVerified: boolean;
   verifyAge: (verified: boolean) => void;
+  isLegalModalOpen: boolean;
+  legalModalPolicy: LegalPolicyType;
+  openLegalModal: (policy?: LegalPolicyType) => void;
+  closeLegalModal: () => void;
 
   // Catalog Data
   products: Product[];
@@ -259,6 +264,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAgeGateOpen, setIsAgeGateOpen] = useState<boolean>(() => {
     return localStorage.getItem('barkwetu_age_verified') !== 'true';
   });
+
+  // Legal & Compliance Modal State
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [legalModalPolicy, setLegalModalPolicy] = useState<LegalPolicyType>('privacy');
+
+  const openLegalModal = (policy: LegalPolicyType = 'privacy') => {
+    setLegalModalPolicy(policy);
+    setIsLegalModalOpen(true);
+  };
+
+  const closeLegalModal = () => {
+    setIsLegalModalOpen(false);
+  };
 
   // State
   const [products, setProducts] = useState<Product[]>(() => {
@@ -2019,6 +2037,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isAgeGateOpen,
         ageVerified,
         verifyAge,
+        isLegalModalOpen,
+        legalModalPolicy,
+        openLegalModal,
+        closeLegalModal,
 
         products,
         categories,

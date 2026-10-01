@@ -85,7 +85,15 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path,
   };
-  console.warn('Firestore Warning/Notice: ', JSON.stringify(errInfo));
+  const errMsg = errInfo.error.toLowerCase();
+  if (
+    !errMsg.includes('unavailable') &&
+    !errMsg.includes('offline') &&
+    !errMsg.includes('the client is offline') &&
+    !errMsg.includes('failed to get document from server')
+  ) {
+    console.warn('Firestore Warning/Notice: ', JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 

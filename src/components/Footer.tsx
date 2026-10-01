@@ -3,7 +3,7 @@ import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Truck, CreditCard, Lock, PhoneCall, Mail, Shield, Bike } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setActiveView, setSelectedCategorySlug, settings, setIsAuthModalOpen } = useStore();
+  const { setActiveView, setSelectedCategorySlug, settings, setIsAuthModalOpen, openLegalModal } = useStore();
 
   return (
     <footer className="w-full bg-[#08090c] border-t border-zinc-800/80 text-zinc-400 text-sm">
@@ -126,16 +126,15 @@ export const Footer: React.FC = () => {
               </button>
             </li>
             <li>
-              <span className="text-zinc-500">Delivery Policy (Fixed KSh 100 in Karatina)</span>
+              <span className="text-zinc-500">Fixed KSh 100 Karatina Delivery</span>
             </li>
             <li>
-              <span className="text-zinc-500">Authenticity Guarantee</span>
+              <span className="text-zinc-500">100% Authentic Duty-Paid Stock</span>
             </li>
           </ul>
 
-          {/* Discreet Staff Portal Links at Bottom */}
           <div className="mt-4 pt-3 border-t border-zinc-800/80">
-            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Staff & Operations</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Staff Portal</span>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setActiveView('admin')}
@@ -153,6 +152,42 @@ export const Footer: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+
+        <div>
+          <h5 className="text-xs font-semibold uppercase tracking-wider text-zinc-200 mb-3">Legal & Compliance</h5>
+          <ul className="space-y-2 text-xs">
+            <li>
+              <button onClick={() => openLegalModal('privacy')} className="hover:text-[#d4af37] transition-colors cursor-pointer">
+                Privacy Policy
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('terms')} className="hover:text-[#d4af37] transition-colors cursor-pointer">
+                Terms & Conditions
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('cookies')} className="hover:text-[#d4af37] transition-colors cursor-pointer">
+                Cookie Policy
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('refund')} className="hover:text-[#d4af37] transition-colors cursor-pointer">
+                Refund & Cancellation
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('minimisation')} className="hover:text-[#d4af37] transition-colors cursor-pointer">
+                Data Minimisation
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('security')} className="hover:text-[#d4af37] transition-colors cursor-pointer text-[#d4af37] font-semibold">
+                Data Storage & Security
+              </button>
+            </li>
+          </ul>
         </div>
 
         <div>

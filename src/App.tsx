@@ -9,6 +9,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { AuthModal } from './components/AuthModal';
 import { CustomerProfileModal } from './components/CustomerProfileModal';
 import { PalPlussMpesaModal } from './components/PalPlussMpesaModal';
+import { LegalPolicyModal } from './components/legal/LegalPolicyModal';
 import { ToastContainer } from './components/Toast';
 import ShapeGrid from './components/ShapeGrid';
 
@@ -20,7 +21,7 @@ import { AdminDashboardView } from './views/AdminDashboardView';
 import { RiderAppView } from './components/rider/RiderAppView';
 
 const MainLayout: React.FC = () => {
-  const { activeView } = useStore();
+  const { activeView, isLegalModalOpen, legalModalPolicy, closeLegalModal } = useStore();
 
   return (
     <div className="min-h-screen bg-[#090a0d] text-zinc-100 flex flex-col font-sans selection:bg-[#d4af37] selection:text-black relative pb-16 md:pb-0">
@@ -67,6 +68,11 @@ const MainLayout: React.FC = () => {
         <AuthModal />
         <CustomerProfileModal />
         <PalPlussMpesaModal />
+        <LegalPolicyModal
+          isOpen={isLegalModalOpen}
+          initialPolicy={legalModalPolicy}
+          onClose={closeLegalModal}
+        />
         <ToastContainer />
       </div>
     </div>
