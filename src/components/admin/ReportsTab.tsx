@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatKES, formatKenyanPhone, formatDateTime } from '../../utils/formatters';
 import { generateExecutiveReportPDF } from '../../utils/pdfReportGenerator';
+import { BulkInventoryUploadModal } from './BulkInventoryUploadModal';
 import { Order, Product, Category, User, PromoCode } from '../../types';
 import {
   BarChart3,
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   ExternalLink,
   FileDown,
+  UploadCloud,
 } from 'lucide-react';
 
 type ReportPeriod = 'all' | 'today' | '7days' | '30days' | 'this_month';
@@ -55,6 +57,7 @@ export const ReportsTab: React.FC = () => {
   const [period, setPeriod] = useState<ReportPeriod>('all');
   const [subSection, setSubSection] = useState<ReportSubSection>('sales');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   // Filter orders by selected time period
   const filteredOrders = useMemo(() => {
@@ -952,18 +955,25 @@ export const ReportsTab: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <button
+                  onClick={() => setIsBulkUploadOpen(true)}
+                  className="flex-1 py-2.5 px-3 bg-[#d4af37] hover:brightness-110 text-black text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#d4af37]/20 cursor-pointer"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Upload Inventory List (CSV)</span>
+                </button>
+                <button
                   onClick={() => handleDownloadPDF('inventory')}
                   className="flex-1 py-2.5 px-3 bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#d4af37] border border-[#d4af37]/40 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <FileDown className="w-3.5 h-3.5" />
-                  <span>Download Inventory Valuation (PDF)</span>
+                  <span>Valuation (PDF)</span>
                 </button>
                 <button
                   onClick={() => handleExportCSV('inventory')}
-                  className="flex-1 py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="py-2.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Export CSV</span>
+                  <span>CSV</span>
                 </button>
               </div>
             </div>
@@ -1137,6 +1147,12 @@ export const ReportsTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Inventory Upload Modal */}
+      <BulkInventoryUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+      />
     </div>
   );
 };

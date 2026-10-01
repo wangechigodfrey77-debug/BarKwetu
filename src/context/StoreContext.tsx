@@ -14,6 +14,8 @@ import {
   ProductReview,
   LoyaltyTier,
   KwetuCoinTransaction,
+  BulkInventoryItem,
+  BulkInventoryResult,
 } from '../types';
 import {
   INITIAL_CATEGORIES,
@@ -104,6 +106,7 @@ interface StoreContextType {
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   adjustStock: (id: string, delta: number) => void;
+  bulkUpdateInventory: (items: BulkInventoryItem[], defaultMode?: 'set' | 'add') => Promise<BulkInventoryResult>;
 
   // Category CRUD
   addCategory: (category: Omit<Category, 'id'>) => void;
@@ -757,6 +760,116 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
     logAdminAction('ADJUST_STOCK', `Adjusted stock for ${id} by ${delta}`);
+  };
+
+  const bulkUpdateInventory = async (
+    items: BulkInventoryItem[],
+    defaultMode: 'set' | 'add' = 'set'
+  ): Promise<BulkInventoryResult> => {
+    let updatedCount = 0;
+    let unmatchedCount = 0;
+    const resultDetails: BulkInventoryResult['items'] = [];
+
+    const cleanStr = (s?: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
+    // Map to hold mutated products
+    const currentProducts = [...products];
+    const productMap = new Map<string, Product>();
+    currentProducts.forEach((p) => productMap.set(p.id, { ...p }));
+
+    items.forEach((item) => {
+      let matchedProduct: Product | undefined;
+
+      // 1. Try matching by exact ID
+      if (item.id && productMap.has(item.id)) {
+        matchedProduct = productMap.get(item.id);
+      }
+
+      // 2. Try matching by slug
+      if (!matchedProduct && item.slug) {
+        matchedProduct = Array.from(productMap.values()).find(
+          (p) => p.slug.toLowerCase() === item.slug?.toLowerCase()
+        );
+      }
+
+      // 3. Try matching by product name (normalized)
+      if (!matchedProduct && item.name) {
+        const targetClean = cleanStr(item.name);
+        matchedProduct = Array.from(productMap.values()).find(
+          (p) =>
+            cleanStr(p.name) === targetClean ||
+            cleanStr(p.name).includes(targetClean) ||
+            targetClean.includes(cleanStr(p.name))
+        );
+      }
+
+      if (matchedProduct) {
+        const oldStock = matchedProduct.stock;
+        const oldPrice = matchedProduct.price;
+        const itemMode = item.mode || defaultMode;
+        const newStock = itemMode === 'add' ? Math.max(0, oldStock + item.stock) : Math.max(0, item.stock);
+
+        matchedProduct.stock = newStock;
+        if (typeof item.price === 'number' && item.price > 0) {
+          matchedProduct.price = item.price;
+        }
+        if (typeof item.salePrice === 'number') {
+          matchedProduct.salePrice = item.salePrice > 0 ? item.salePrice : undefined;
+        }
+
+        productMap.set(matchedProduct.id, matchedProduct);
+        updatedCount++;
+        resultDetails.push({
+          productId: matchedProduct.id,
+          productName: matchedProduct.name,
+          oldStock,
+          newStock,
+          oldPrice,
+          newPrice: matchedProduct.price,
+          matched: true,
+        });
+
+        // Sync individual product to Firestore
+        syncSaveProduct(matchedProduct).catch((e) =>
+          console.warn(`Bulk inventory sync for ${matchedProduct?.name}:`, e)
+        );
+      } else {
+        unmatchedCount++;
+        resultDetails.push({
+          productId: item.id || 'unmatched',
+          productName: item.name || item.id || 'Unknown Spirit Item',
+          oldStock: 0,
+          newStock: item.stock,
+          matched: false,
+        });
+      }
+    });
+
+    const newProductList = Array.from(productMap.values());
+    setProducts(newProductList);
+    localStorage.setItem('barkwetu_products', JSON.stringify(newProductList));
+
+    logAdminAction(
+      'BULK_INVENTORY_UPDATE',
+      `Updated inventory for ${updatedCount} spirits via bulk upload (${unmatchedCount} unmatched).`
+    );
+
+    showToast(
+      `✓ Bulk inventory updated successfully for ${updatedCount} spirits!`,
+      'success'
+    );
+
+    return {
+      success: true,
+      totalProcessed: items.length,
+      updatedCount,
+      unmatchedCount,
+      items: resultDetails,
+    };
   };
 
   // Product Reviews & Ratings Management
@@ -1840,6 +1953,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateProduct,
         deleteProduct,
         adjustStock,
+        bulkUpdateInventory,
 
         addCategory,
         updateCategory,

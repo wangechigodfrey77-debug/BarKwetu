@@ -49,6 +49,32 @@ export interface Product {
   reviewsCount: number;
 }
 
+export interface BulkInventoryItem {
+  id?: string;
+  name?: string;
+  slug?: string;
+  stock: number;
+  price?: number;
+  salePrice?: number;
+  mode?: 'set' | 'add';
+}
+
+export interface BulkInventoryResult {
+  success: boolean;
+  totalProcessed: number;
+  updatedCount: number;
+  unmatchedCount: number;
+  items: Array<{
+    productId: string;
+    productName: string;
+    oldStock: number;
+    newStock: number;
+    oldPrice?: number;
+    newPrice?: number;
+    matched: boolean;
+  }>;
+}
+
 export interface ProductReview {
   id: string;
   productId: string;

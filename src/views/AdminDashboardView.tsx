@@ -4,6 +4,7 @@ import { Product, Category, PromoCode, OrderStatus, User } from '../types';
 import { formatKES, formatDateTime, formatKenyanPhone } from '../utils/formatters';
 import { FleetTrackerTab } from '../components/admin/FleetTrackerTab';
 import { ReportsTab } from '../components/admin/ReportsTab';
+import { BulkInventoryUploadModal } from '../components/admin/BulkInventoryUploadModal';
 import {
   Shield,
   Package,
@@ -36,6 +37,7 @@ import {
   BarChart3,
   FileSpreadsheet,
   TrendingUp,
+  UploadCloud,
 } from 'lucide-react';
 
 const PRESET_SPIRIT_IMAGES = [
@@ -110,6 +112,7 @@ export const AdminDashboardView: React.FC = () => {
 
   // Product Form Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isBulkInventoryModalOpen, setIsBulkInventoryModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productImageUrlInput, setProductImageUrlInput] = useState('');
   const productImageFileRef = useRef<HTMLInputElement>(null);
@@ -990,34 +993,45 @@ export const AdminDashboardView: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  setEditingProductId(null);
-                  setProductForm({
-                    name: '',
-                    slug: '',
-                    brand: '',
-                    categoryId: categories[0]?.id || 'cat-whisky',
-                    categoryName: categories[0]?.name || 'Whisky / Whiskey',
-                    spiritType: 'whisky',
-                    price: 4500,
-                    salePrice: undefined,
-                    stock: 25,
-                    abv: '40.0%',
-                    volume: '750ml',
-                    description: '',
-                    origin: 'Scotland',
-                    images: ['/assets/images/category_single_malt_1790229532902.jpg'],
-                    isFeatured: false,
-                    isActive: true,
-                  });
-                  setIsProductModalOpen(true);
-                }}
-                className="py-2.5 px-5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-xs flex items-center gap-2 hover:brightness-110 transition-all cursor-pointer shadow-md shadow-[#d4af37]/20"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Add New Spirit</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => setIsBulkInventoryModalOpen(true)}
+                  className="py-2.5 px-4 rounded-xl bg-[#1a1c28] hover:bg-[#232738] border border-[#d4af37]/40 hover:border-[#d4af37] text-white font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                  title="Upload CSV or spreadsheet list to bulk update all spirits inventory"
+                >
+                  <UploadCloud className="w-4 h-4 text-[#d4af37]" />
+                  <span>Upload Inventory List</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingProductId(null);
+                    setProductForm({
+                      name: '',
+                      slug: '',
+                      brand: '',
+                      categoryId: categories[0]?.id || 'cat-whisky',
+                      categoryName: categories[0]?.name || 'Whisky / Whiskey',
+                      spiritType: 'whisky',
+                      price: 4500,
+                      salePrice: undefined,
+                      stock: 25,
+                      abv: '40.0%',
+                      volume: '750ml',
+                      description: '',
+                      origin: 'Scotland',
+                      images: ['/assets/images/category_single_malt_1790229532902.jpg'],
+                      isFeatured: false,
+                      isActive: true,
+                    });
+                    setIsProductModalOpen(true);
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b8860b] text-black font-semibold text-xs flex items-center gap-2 hover:brightness-110 transition-all cursor-pointer shadow-md shadow-[#d4af37]/20"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Add New Spirit</span>
+                </button>
+              </div>
             </div>
 
             {/* Products Table */}
@@ -2609,6 +2623,12 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Inventory Upload Modal */}
+      <BulkInventoryUploadModal
+        isOpen={isBulkInventoryModalOpen}
+        onClose={() => setIsBulkInventoryModalOpen(false)}
+      />
     </div>
   );
 };
