@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatKES } from '../utils/formatters';
-import { X, Trash2, ArrowRight, Tag, ShoppingBag, Truck } from 'lucide-react';
+import { getTierMultiplier } from '../utils/loyaltyUtils';
+import { X, Trash2, ArrowRight, Tag, ShoppingBag, Truck, Coins, Sparkles } from 'lucide-react';
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -14,6 +15,8 @@ export const CartDrawer: React.FC = () => {
     cartSubtotal,
     deliveryFee,
     discountAmount,
+    loyaltyDiscountAmount,
+    redeemedCoins,
     cartTotal,
     appliedPromo,
     applyPromoCode,
@@ -218,8 +221,17 @@ export const CartDrawer: React.FC = () => {
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-400">
-                  <span>Discount</span>
+                  <span>Promo Discount ({appliedPromo?.code})</span>
                   <span className="font-medium tabular-nums">-{formatKES(discountAmount)}</span>
+                </div>
+              )}
+              {loyaltyDiscountAmount > 0 && (
+                <div className="flex justify-between text-[#d4af37]">
+                  <span className="flex items-center gap-1">
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>Kwetu Coins ({redeemedCoins} coins)</span>
+                  </span>
+                  <span className="font-medium tabular-nums">-{formatKES(loyaltyDiscountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -233,6 +245,18 @@ export const CartDrawer: React.FC = () => {
                 <span>Total Amount</span>
                 <span className="text-base text-[#d4af37] tabular-nums">{formatKES(cartTotal)}</span>
               </div>
+            </div>
+
+            {/* Earning Preview Pill */}
+            <div className="p-2.5 bg-[#090a0d] border border-zinc-800/80 rounded-xl flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 text-zinc-300">
+                <Coins className="w-3.5 h-3.5 text-[#d4af37]" />
+                <span>Earn on this purchase:</span>
+              </div>
+              <span className="font-bold text-[#d4af37] font-mono flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                +{Math.max(1, Math.round((cartSubtotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze')))} Coins
+              </span>
             </div>
 
             {/* Checkout Action */}

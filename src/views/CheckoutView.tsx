@@ -17,6 +17,8 @@ import {
   Coins,
   Gift,
   Ticket,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 
 export const CheckoutView: React.FC = () => {
@@ -25,6 +27,10 @@ export const CheckoutView: React.FC = () => {
     cartSubtotal,
     deliveryFee,
     discountAmount,
+    loyaltyDiscountAmount,
+    redeemedCoins,
+    applyCoinsDiscount,
+    removeCoinsDiscount,
     cartTotal,
     appliedPromo,
     currentUser,
@@ -465,6 +471,15 @@ export const CheckoutView: React.FC = () => {
                     <span className="font-medium tabular-nums">-{formatKES(discountAmount)}</span>
                   </div>
                 )}
+                {loyaltyDiscountAmount > 0 && (
+                  <div className="flex justify-between text-[#d4af37]">
+                    <span className="flex items-center gap-1">
+                      <Coins className="w-3.5 h-3.5" />
+                      <span>Kwetu Coins Discount ({redeemedCoins} coins)</span>
+                    </span>
+                    <span className="font-medium tabular-nums">-{formatKES(loyaltyDiscountAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5 text-[#d4af37]" />
@@ -478,30 +493,115 @@ export const CheckoutView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Kwetu Coins Loyalty Earning Notice */}
-              <div className="mt-4 p-3 bg-gradient-to-r from-[#181924] to-[#12131a] border border-[#d4af37]/30 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#d4af37] shrink-0">
-                    <Coins className="w-4 h-4" />
+              {/* Kwetu Coins Loyalty Redemption Card */}
+              {currentUser ? (
+                <div className="mt-4 p-4 bg-[#0d0e14] border border-[#d4af37]/40 rounded-2xl space-y-3 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37] shrink-0">
+                        <Coins className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>Kwetu Coins Loyalty</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#d4af37]/20 text-[#d4af37] font-mono font-bold">
+                            {currentUser.loyaltyTier || 'Bronze'} Tier
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-zinc-400">
+                          Balance: <strong className="text-[#d4af37] font-mono">{currentUser.kwetuCoins || 0} Coins</strong> (worth {formatKES(currentUser.kwetuCoins || 0)})
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openProfileModal('coins')}
+                      className="text-[10px] text-zinc-400 hover:text-[#d4af37] transition-colors cursor-pointer"
+                    >
+                      Rewards →
+                    </button>
                   </div>
-                  <div>
-                    <span className="text-white font-semibold flex items-center gap-1">
-                      Earn <strong className="text-[#d4af37] font-mono">+{Math.max(1, Math.round((cartSubtotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze')))} Kwetu Coins</strong>
+
+                  {(currentUser.kwetuCoins || 0) > 0 ? (
+                    <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+                      {redeemedCoins > 0 ? (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>
+                              <strong>{redeemedCoins} Coins</strong> applied (-{formatKES(loyaltyDiscountAmount)} discount)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeCoinsDiscount}
+                            className="text-[11px] text-rose-400 hover:text-rose-300 underline font-semibold cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <p className="text-[11px] text-zinc-300">
+                            Redeem points for instant discount (1 Coin = KSh 1 Off):
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[50, 100, 200]
+                              .filter((amount) => (currentUser.kwetuCoins || 0) >= amount)
+                              .map((amount) => (
+                                <button
+                                  key={amount}
+                                  type="button"
+                                  onClick={() => applyCoinsDiscount(amount)}
+                                  className="py-1 px-2.5 rounded-lg bg-zinc-800 hover:bg-[#d4af37] text-zinc-300 hover:text-black text-xs font-mono font-semibold transition-all cursor-pointer"
+                                >
+                                  Use {amount} (-{formatKES(amount)})
+                                </button>
+                              ))}
+                            <button
+                              type="button"
+                              onClick={() => applyCoinsDiscount(currentUser.kwetuCoins || 0)}
+                              className="py-1 px-2.5 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37] text-[#d4af37] hover:text-black border border-[#d4af37]/40 text-xs font-mono font-bold transition-all cursor-pointer"
+                            >
+                              Use Max ({Math.min(currentUser.kwetuCoins || 0, Math.max(0, cartSubtotal - discountAmount))} Coins)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 italic pt-1 border-t border-zinc-800/80">
+                      You have 0 coins in wallet. Complete this order to start earning!
+                    </p>
+                  )}
+
+                  {/* Purchase Earning Notice */}
+                  <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Earning from this purchase:</span>
+                    <span className="font-bold text-[#d4af37] font-mono flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      +{Math.max(1, Math.round((cartSubtotal / 100) * getTierMultiplier(currentUser?.loyaltyTier || 'Bronze')))} Coins
                     </span>
-                    <p className="text-[10px] text-zinc-400">Credited automatically upon M-Pesa payment confirmation</p>
                   </div>
                 </div>
-
-                {currentUser && (
+              ) : (
+                <div className="mt-4 p-3.5 bg-[#0d0e14] border border-zinc-800 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-[#d4af37] shrink-0" />
+                    <span className="text-zinc-300 text-[11px]">
+                      Sign in to earn <strong className="text-[#d4af37]">Kwetu Coins</strong> and redeem discounts.
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => openProfileModal('coins')}
-                    className="text-[10px] text-[#d4af37] hover:underline font-bold px-2 py-1 rounded bg-[#d4af37]/10 border border-[#d4af37]/25 shrink-0"
+                    onClick={() => openAuthModal('signin', 'checkout')}
+                    className="text-xs font-bold text-[#d4af37] hover:underline shrink-0 cursor-pointer"
                   >
-                    Wallet ({currentUser.kwetuCoins ?? 0})
+                    Sign In
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Submit CTA Button */}
               <div className="mt-6">

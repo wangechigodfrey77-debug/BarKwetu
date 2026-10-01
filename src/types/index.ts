@@ -185,6 +185,8 @@ export interface Order {
   shippingAddress: ShippingAddress;
   trackingTimeline: TrackingStep[];
   kwetuCoinsEarned?: number;
+  kwetuCoinsRedeemed?: number;
+  loyaltyDiscount?: number;
   assignedRiderId?: string;
   assignedRiderName?: string;
   assignedRiderPhone?: string;

@@ -122,6 +122,10 @@ interface StoreContextType {
   cartSubtotal: number;
   deliveryFee: number;
   discountAmount: number;
+  loyaltyDiscountAmount: number;
+  redeemedCoins: number;
+  applyCoinsDiscount: (coins: number) => { success: boolean; message: string };
+  removeCoinsDiscount: () => void;
   cartTotal: number;
 
   // Promo Codes
@@ -278,6 +282,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [redeemedCoins, setRedeemedCoins] = useState<number>(0);
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('barkwetu_current_user');
@@ -607,7 +612,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       : Math.min(appliedPromo.discountValue, cartSubtotal)
     : 0;
 
-  const cartTotal = Math.max(0, cartSubtotal - discountAmount + deliveryFee);
+  // 1 Kwetu Coin = KSh 1 Discount, capped at customer coin balance and remaining subtotal
+  const maxRedeemableCoins = Math.min(
+    currentUser?.kwetuCoins || 0,
+    Math.max(0, cartSubtotal - discountAmount)
+  );
+
+  const activeRedeemedCoins = Math.min(redeemedCoins, maxRedeemableCoins);
+  const loyaltyDiscountAmount = activeRedeemedCoins; // KSh 1 per coin
+
+  const totalDiscount = discountAmount + loyaltyDiscountAmount;
+  const cartTotal = Math.max(0, cartSubtotal - totalDiscount + deliveryFee);
+
+  const applyCoinsDiscount = (coins: number): { success: boolean; message: string } => {
+    if (!currentUser) {
+      showToast('Please sign in or register to redeem Kwetu Coins.', 'error');
+      openAuthModal('signin', 'checkout');
+      return { success: false, message: 'Authentication required' };
+    }
+    const available = currentUser.kwetuCoins || 0;
+    if (available <= 0) {
+      showToast('You currently have 0 Kwetu Coins in your wallet.', 'error');
+      return { success: false, message: 'No coins available' };
+    }
+    const maxAllowed = Math.min(available, Math.max(0, cartSubtotal - discountAmount));
+    if (maxAllowed <= 0) {
+      showToast('Order subtotal is already fully discounted.', 'info');
+      return { success: false, message: 'Subtotal already covered' };
+    }
+    const target = Math.max(1, Math.min(coins, maxAllowed));
+    setRedeemedCoins(target);
+    showToast(`🪙 Applied ${target} Kwetu Coins (KSh ${target} instant discount)!`, 'success');
+    return { success: true, message: `Applied ${target} coins.` };
+  };
+
+  const removeCoinsDiscount = () => {
+    setRedeemedCoins(0);
+    showToast('Removed loyalty coins discount.', 'info');
+  };
 
   // Cart Operations
   const addToCart = (product: Product, quantity = 1) => {
@@ -1625,9 +1667,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       items: orderItems,
       subtotal: cartSubtotal,
       deliveryFee,
-      discount: discountAmount,
+      discount: totalDiscount,
       total: cartTotal,
       kwetuCoinsEarned: calculatedCoins,
+      kwetuCoinsRedeemed: activeRedeemedCoins,
+      loyaltyDiscount: loyaltyDiscountAmount,
       promoCodeApplied: appliedPromo?.code,
       status: 'pending',
       paymentMethod: 'mpesa_palpluss',
@@ -1882,8 +1926,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrentOrder(updatedPaidOrder);
       syncSaveOrder(updatedPaidOrder).catch((e) => console.warn('Paid order sync error:', e));
 
-      // Award Kwetu Coins for paid purchase
+      // Deduct Kwetu Coins if redeemed at checkout
       const buyerId = updatedPaidOrder.userId || currentUser?.id;
+      if (updatedPaidOrder.kwetuCoinsRedeemed && updatedPaidOrder.kwetuCoinsRedeemed > 0 && buyerId) {
+        const coinsSpent = updatedPaidOrder.kwetuCoinsRedeemed;
+        const targetUser = adminUsers.find((u) => u.id === buyerId) || (currentUser?.id === buyerId ? currentUser : null);
+        if (targetUser) {
+          const newCoinBal = Math.max(0, (targetUser.kwetuCoins || 0) - coinsSpent);
+          const deductTx: KwetuCoinTransaction = {
+            id: `tx-red-${Date.now()}`,
+            userId: targetUser.id,
+            amount: -coinsSpent,
+            type: 'redeemed_discount',
+            description: `Redeemed ${coinsSpent} Kwetu Coins for instant KSh ${coinsSpent} discount on Order #${updatedPaidOrder.orderNumber}`,
+            orderNumber: updatedPaidOrder.orderNumber,
+            timestamp: nowIso,
+          };
+          const userAfterDeduct: User = {
+            ...targetUser,
+            kwetuCoins: newCoinBal,
+            coinsHistory: [deductTx, ...(targetUser.coinsHistory || [])],
+          };
+          if (currentUser?.id === buyerId) {
+            setCurrentUser(userAfterDeduct);
+          }
+          setAdminUsers((prev) => prev.map((u) => (u.id === buyerId ? userAfterDeduct : u)));
+          syncSaveUser(userAfterDeduct).catch((e) => console.warn('Sync user after coin deduction:', e));
+        }
+      }
+
+      // Award Kwetu Coins for paid purchase
       if (buyerId) {
         const userTier = currentUser?.loyaltyTier || 'Bronze';
         const multiplier = getTierMultiplier(userTier);
@@ -1897,6 +1969,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       logAdminAction('PAYMENT_CONFIRMED', `PalPluss M-Pesa payment (${receipt}) received for Order #${currentOrder.orderNumber}`);
 
+      setRedeemedCoins(0);
       clearCart();
       showToast(`Payment received! M-Pesa Receipt: ${receipt}`, 'success');
 
@@ -1967,6 +2040,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cartSubtotal,
         deliveryFee,
         discountAmount,
+        loyaltyDiscountAmount,
+        redeemedCoins,
+        applyCoinsDiscount,
+        removeCoinsDiscount,
         cartTotal,
 
         appliedPromo,
