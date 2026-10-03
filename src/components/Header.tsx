@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins } from 'lucide-react';
+import { ShoppingBag, User as UserIcon, Shield, Search, PackageCheck, Bike, Coins, Phone, MessageCircle } from 'lucide-react';
 import { TopNotificationBar } from './TopNotificationBar';
 
 export const Header: React.FC = () => {
@@ -24,18 +24,43 @@ export const Header: React.FC = () => {
       {/* High-Visibility Persistent Top Notification Bar */}
       <TopNotificationBar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Zone 1: Single text element Brand Zone */}
-        <button
-          onClick={() => {
-            setSelectedCategorySlug(null);
-            setActiveView('store');
-          }}
-          className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-white hover:text-[#d4af37] transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-        >
-          <span>{settings.storeName}</span>
-          <span className="text-[#d4af37] text-lg font-sans font-light">KE</span>
-        </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between gap-4">
+        {/* Zone 1: Single text element Brand Zone with Hotline directly below */}
+        <div className="flex flex-col items-start shrink-0">
+          <button
+            onClick={() => {
+              setSelectedCategorySlug(null);
+              setActiveView('store');
+            }}
+            className="text-2xl sm:text-3xl font-serif font-bold tracking-tight text-white hover:text-[#d4af37] transition-colors flex items-center gap-1.5 cursor-pointer leading-tight"
+          >
+            <span>{settings.storeName}</span>
+            <span className="text-[#d4af37] text-lg font-sans font-light">KE</span>
+          </button>
+
+          {/* WhatsApp / Call Hotline Button below BarKwetu */}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <a
+              href="https://wa.me/254112294835?text=Hello%20BarKwetu%20Karatina%2C%20I%20would%20like%20to%20place%20an%20order%20or%20make%20an%20inquiry."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] text-[10px] font-bold border border-[#25D366]/30 transition"
+              title="Chat on WhatsApp (+254 112 294 835)"
+            >
+              <MessageCircle className="w-2.5 h-2.5 fill-[#25D366] stroke-none" />
+              <span>WhatsApp</span>
+            </a>
+
+            <a
+              href="tel:+254112294835"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#d4af37] text-[10px] font-bold border border-[#d4af37]/30 transition font-mono"
+              title="Call BarKwetu Hotline (254112294835)"
+            >
+              <Phone className="w-2.5 h-2.5 text-[#d4af37]" />
+              <span>0112 294 835</span>
+            </a>
+          </div>
+        </div>
 
         {/* Zone 2: 4-6 clean text navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-300">
