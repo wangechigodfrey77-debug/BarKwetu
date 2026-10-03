@@ -279,6 +279,7 @@ export interface SiteSettings {
   palplussWebhookSecret: string;
   palplussLiveMode: boolean;
   palplussEndpoint: string;
+  mpesaTillNumber: string;
 }
 
 export interface AuditLog {

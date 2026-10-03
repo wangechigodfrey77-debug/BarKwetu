@@ -498,15 +498,20 @@ export const CheckoutView: React.FC = () => {
                 <ShieldCheck className="w-4 h-4" />
                 <span>2. Payment Gateway</span>
               </div>
-              <h3 className="text-xl font-serif font-bold text-white mb-3">
-                M-Pesa STK Push via PalPluss
+              <h3 className="text-xl font-serif font-bold text-white mb-2">
+                M-Pesa Express &amp; Buy Goods
               </h3>
-              <p className="text-xs text-zinc-400 leading-relaxed mb-4">
-                Instant encrypted mobile checkout. Once you click &quot;Pay with PalPluss M-Pesa&quot;, an STK push notification will instantly appear on your phone to enter your PIN.
+              <p className="text-xs text-zinc-400 leading-relaxed mb-3">
+                Instant encrypted mobile checkout. An STK push prompt will appear on your phone to enter your PIN. In case of cell network delay, you can pay directly via our <strong>Buy Goods Till: 1661655</strong>.
               </p>
-              <div className="flex items-center gap-3 p-3 bg-[#0d0e12] border border-zinc-800 rounded-xl text-xs text-zinc-300">
-                <span className="w-2 h-2 rounded-full bg-[#00A859] animate-ping" />
-                <span>PalPluss Gateway Connected · Fixed KSh 100 Delivery Included</span>
+              <div className="flex items-center justify-between p-3 bg-[#0d0e12] border border-zinc-800 rounded-xl text-xs text-zinc-300">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#00A859] animate-ping" />
+                  <span>Real-Time M-Pesa STK Push</span>
+                </div>
+                <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Till: 1661655
+                </span>
               </div>
             </div>
           </div>

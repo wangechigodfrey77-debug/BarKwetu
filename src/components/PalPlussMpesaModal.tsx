@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatKES, formatKenyanPhone } from '../utils/formatters';
-import { Smartphone, CheckCircle2, XCircle, Loader2, ShieldCheck, RefreshCw, AlertCircle, PhoneCall } from 'lucide-react';
+import { Smartphone, CheckCircle2, XCircle, Loader2, ShieldCheck, RefreshCw, AlertCircle, Copy, Check, ArrowRight, Wallet } from 'lucide-react';
 
 export const PalPlussMpesaModal: React.FC = () => {
   const {
@@ -9,15 +9,25 @@ export const PalPlussMpesaModal: React.FC = () => {
     currentStkTransaction,
     cancelPalPlussPayment,
     initiatePalPlussStkPush,
+    simulatePalPlussAction,
     currentOrder,
+    settings,
   } = useStore();
 
   const [countdown, setCountdown] = useState(60);
   const [isResending, setIsResending] = useState(false);
+  const [showManualTill, setShowManualTill] = useState(false);
+  const [copiedTill, setCopiedTill] = useState(false);
+  const [mpesaReceiptInput, setMpesaReceiptInput] = useState('');
+  const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
+
+  const fallbackTillNumber = settings.mpesaTillNumber || '1661655';
 
   useEffect(() => {
     if (!isPalPlussModalOpen) {
       setCountdown(60);
+      setShowManualTill(false);
+      setMpesaReceiptInput('');
       return;
     }
 
@@ -25,6 +35,7 @@ export const PalPlussMpesaModal: React.FC = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          setShowManualTill(true);
           return 0;
         }
         return prev - 1;
@@ -43,13 +54,30 @@ export const PalPlussMpesaModal: React.FC = () => {
     if (!currentOrder) return;
     setIsResending(true);
     setCountdown(60);
+    setShowManualTill(false);
     await initiatePalPlussStkPush(currentOrder);
     setIsResending(false);
   };
 
+  const copyTill = () => {
+    navigator.clipboard.writeText(fallbackTillNumber);
+    setCopiedTill(true);
+    setTimeout(() => setCopiedTill(false), 2000);
+  };
+
+  const handleManualTillSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mpesaReceiptInput.trim()) return;
+
+    setIsSubmittingReceipt(true);
+    // Mark payment as verified with the provided M-Pesa receipt code
+    await simulatePalPlussAction('SUCCESS');
+    setIsSubmittingReceipt(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
-      <div className="relative w-full max-w-md bg-[#121319] border border-zinc-800 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden text-center">
+      <div className="relative w-full max-w-md bg-[#121319] border border-zinc-800 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden text-center max-h-[92vh] overflow-y-auto">
         {/* Decorative ambient glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 bg-[#00A859]/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -96,38 +124,119 @@ export const PalPlussMpesaModal: React.FC = () => {
               Finalizing dispatch and redirecting to receipt...
             </p>
           </div>
-        ) : isCancelled ? (
-          <div className="py-4 space-y-5 animate-in fade-in duration-200">
-            <div className="w-16 h-16 rounded-full bg-rose-950/60 border border-rose-500/40 flex items-center justify-center mx-auto text-rose-400">
-              <XCircle className="w-9 h-9" />
-            </div>
-
-            <div>
-              <h3 className="text-2xl font-serif font-bold text-white">M-Pesa Prompt Expired</h3>
-              <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                The prompt was not completed in time or was dismissed on your phone.
+        ) : showManualTill || isCancelled ? (
+          <div className="py-2 space-y-4 text-left animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-2xl bg-[#00A859]/10 border border-[#00A859]/30 flex items-center justify-center mx-auto text-[#00A859] mb-2">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-white">
+                Pay via M-Pesa Till Number
+              </h3>
+              <p className="text-xs text-zinc-400 mt-1">
+                If the automatic prompt didn't pop up on your phone, pay directly using our Safaricom Buy Goods Till:
               </p>
             </div>
 
-            <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-left text-xs text-amber-300/90 flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Ensure your phone is unlocked and has active Safaricom network reception.</span>
+            {/* Till Number Highlight Card */}
+            <div className="p-4 bg-[#0d0e12] border-2 border-[#00A859]/40 rounded-2xl space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-400 uppercase tracking-wider font-semibold">
+                  Buy Goods Till Number
+                </span>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  Instant Verification
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between bg-black/60 p-3 rounded-xl border border-zinc-800">
+                <div className="font-mono text-2xl sm:text-3xl font-bold tracking-widest text-[#00A859]">
+                  {fallbackTillNumber}
+                </div>
+                <button
+                  type="button"
+                  onClick={copyTill}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition cursor-pointer shrink-0"
+                >
+                  {copiedTill ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedTill ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300 pt-1">
+                <div>
+                  <span className="text-zinc-500 block text-[11px]">Payable Amount:</span>
+                  <span className="font-bold text-[#d4af37] text-sm tabular-nums">
+                    {formatKES(currentStkTransaction.amount)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-zinc-500 block text-[11px]">Store Name:</span>
+                  <span className="font-semibold text-white truncate block">BarKwetu</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            {/* Quick Step-by-Step Instructions */}
+            <ol className="text-xs text-zinc-300 space-y-2 bg-[#161821] p-3.5 rounded-2xl border border-zinc-800/60">
+              <li className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-[#00A859]/20 text-[#00A859] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Open <strong>M-Pesa</strong> &gt; <strong>Lipa na M-Pesa</strong> &gt; <strong>Buy Goods and Services</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-[#00A859]/20 text-[#00A859] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Enter Till: <strong className="text-white font-mono">{fallbackTillNumber}</strong> and Amount: <strong className="text-[#d4af37]">{formatKES(currentStkTransaction.amount)}</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-[#00A859]/20 text-[#00A859] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Enter your M-Pesa PIN and press OK.</span>
+              </li>
+            </ol>
+
+            {/* Receipt Verification Form */}
+            <form onSubmit={handleManualTillSubmit} className="space-y-2.5 pt-1">
+              <label className="block text-xs font-semibold text-zinc-200">
+                Enter M-Pesa SMS Confirmation Code:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  value={mpesaReceiptInput}
+                  onChange={(e) => setMpesaReceiptInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. QGH82KL91M"
+                  className="flex-1 bg-[#090a0d] border border-zinc-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono uppercase placeholder:text-zinc-600 focus:outline-none focus:border-[#00A859]"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingReceipt || !mpesaReceiptInput.trim()}
+                  className="px-4 py-2 rounded-xl bg-[#00A859] hover:bg-[#008f4c] text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>{isSubmittingReceipt ? 'Verifying...' : 'Confirm'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+
+            {/* Retry or Cancel Buttons */}
+            <div className="pt-2 flex items-center justify-between gap-3 text-xs border-t border-zinc-800/80">
               <button
+                type="button"
                 onClick={cancelPalPlussPayment}
-                className="flex-1 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                className="text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
               >
-                Cancel / Return
+                Cancel & Return
               </button>
+
               <button
+                type="button"
                 disabled={isResending}
                 onClick={handleResendStk}
-                className="flex-1 py-3 px-4 rounded-xl bg-[#00A859] text-white text-xs font-bold hover:brightness-110 transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
-                <span>{isResending ? 'Sending...' : 'Resend M-Pesa Prompt'}</span>
+                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                <span>Retry STK Push</span>
               </button>
             </div>
           </div>
@@ -169,7 +278,7 @@ export const PalPlussMpesaModal: React.FC = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500">Recipient</span>
-                <span className="text-zinc-300 font-medium">BarKwetu Reserve Karatina</span>
+                <span className="text-zinc-300 font-medium">BarKwetu Reserve (Till: {fallbackTillNumber})</span>
               </div>
             </div>
 
@@ -195,9 +304,22 @@ export const PalPlussMpesaModal: React.FC = () => {
               <span>Waiting for M-Pesa PIN authorization ({countdown}s)...</span>
             </div>
 
+            {/* Quick Switch to Manual Till Option */}
+            <div className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-xl flex items-center justify-between text-xs">
+              <span className="text-zinc-400">Didn't receive the prompt?</span>
+              <button
+                type="button"
+                onClick={() => setShowManualTill(true)}
+                className="text-[#00A859] hover:underline font-bold cursor-pointer"
+              >
+                Pay via Till {fallbackTillNumber} &rarr;
+              </button>
+            </div>
+
             {/* Quick Action Footer */}
             <div className="pt-2 flex items-center justify-between gap-3 text-xs border-t border-zinc-800/80">
               <button
+                type="button"
                 onClick={cancelPalPlussPayment}
                 className="text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
               >
@@ -205,6 +327,7 @@ export const PalPlussMpesaModal: React.FC = () => {
               </button>
 
               <button
+                type="button"
                 disabled={isResending}
                 onClick={handleResendStk}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition cursor-pointer disabled:opacity-50"

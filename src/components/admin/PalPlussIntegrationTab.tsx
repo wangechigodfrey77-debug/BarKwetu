@@ -268,6 +268,21 @@ export const PalPlussIntegrationTab: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1.5">
+                  Fallback Safaricom Buy Goods Till Number
+                </label>
+                <div className="p-3 bg-[#090a0d] border border-emerald-500/30 rounded-xl flex items-center justify-between">
+                  <span className="font-mono text-base font-bold text-emerald-400">1661655</span>
+                  <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                    Active Till Fallback
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-500 block mt-1">
+                  Shown automatically to customers whenever an STK push times out or is rejected by network delays.
+                </span>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSaving}

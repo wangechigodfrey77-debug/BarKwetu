@@ -531,6 +531,7 @@ export const INITIAL_SETTINGS: SiteSettings = {
   palplussWebhookSecret: 'whsec_barkwetu_palpluss_2026',
   palplussLiveMode: false,
   palplussEndpoint: 'https://api.palpluss.com/v1/stkpush',
+  mpesaTillNumber: '1661655',
 };
 
 export const INITIAL_USERS: User[] = [
