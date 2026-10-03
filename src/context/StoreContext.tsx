@@ -358,7 +358,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Sound Alerts for Real-time Orders
+  // Admin View & Role Tracking Refs for Real-Time Event Dispatch
+  const activeViewRef = useRef<ActiveView>(activeView);
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
+
+  const currentUserRef = useRef<User | null>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  // Sound Alerts for Real-time Orders (Admin Console)
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('barkwetu_sound_alerts_enabled');
     return saved !== null ? saved === 'true' : true;
@@ -374,9 +385,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const next = !prev;
       if (next) {
         playNewOrderAlertSound();
-        showToast('Order sound chime enabled 🔔', 'success');
+        showToast('Admin order sound chime enabled 🔔', 'success');
       } else {
-        showToast('Order sound chime muted 🔕', 'info');
+        showToast('Admin order sound chime muted 🔕', 'info');
       }
       return next;
     });
@@ -420,15 +431,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setOrders(liveOrders);
       }
 
-      // Trigger Toast notification & sound alert whenever a new order is added to Firestore
-      if (newlyAdded && newlyAdded.length > 0) {
+      // STRICT: Notifications and chime alerts are ONLY sent to Admins and Superadmins, never regular customers
+      const isAdminViewer =
+        currentUserRef.current?.role === 'admin' ||
+        currentUserRef.current?.role === 'superadmin' ||
+        activeViewRef.current === 'admin';
+
+      if (isAdminViewer && newlyAdded && newlyAdded.length > 0) {
         newlyAdded.forEach((newOrder) => {
           const customer = newOrder.userName || 'Customer';
           const destination = newOrder.shippingAddress?.town || 'Karatina';
           const amountFormatted = formatKES(newOrder.total);
 
           showToast(
-            `🔔 New Order #${newOrder.orderNumber}! ${amountFormatted} from ${customer} (${destination})`,
+            `🔔 [Admin Notification] New Order #${newOrder.orderNumber}! ${amountFormatted} from ${customer} (${destination})`,
             'success'
           );
 

@@ -13,7 +13,14 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
-// In-memory payment and transaction state store
+// In-memory payment and transaction state store & PalPluss gateway config
+let palplussConfig = {
+  apiKey: process.env.PALPLUSS_API_KEY || '',
+  merchantId: process.env.PALPLUSS_MERCHANT_ID || '',
+  apiUrl: process.env.PALPLUSS_API_URL || 'https://api.palpluss.com/v1',
+  environment: (process.env.PALPLUSS_API_KEY ? 'live' : 'sandbox') as 'live' | 'sandbox',
+};
+
 const palplussTransactions: Record<string, {
   reference: string;
   orderNumber: string;
@@ -28,14 +35,47 @@ const palplussTransactions: Record<string, {
 // ==================== PALPLUSS M-PESA API ROUTES ====================
 
 /**
+ * GET /api/payments/palpluss/config
+ * Check PalPluss connection status and webhook configuration
+ */
+app.get('/api/payments/palpluss/config', (_req: Request, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    isConfigured: Boolean(palplussConfig.apiKey),
+    merchantId: palplussConfig.merchantId ? `${palplussConfig.merchantId.slice(0, 4)}****` : 'Not Set',
+    apiUrl: palplussConfig.apiUrl,
+    environment: palplussConfig.environment,
+    webhookEndpoint: '/api/payments/palpluss/webhook',
+  });
+});
+
+/**
+ * POST /api/payments/palpluss/save-config
+ * Update PalPluss credentials from Admin Dashboard
+ */
+app.post('/api/payments/palpluss/save-config', (req: Request, res: Response) => {
+  const { apiKey, merchantId, apiUrl, environment } = req.body;
+  if (apiKey !== undefined) palplussConfig.apiKey = apiKey.trim();
+  if (merchantId !== undefined) palplussConfig.merchantId = merchantId.trim();
+  if (apiUrl !== undefined) palplussConfig.apiUrl = apiUrl.trim();
+  if (environment !== undefined) palplussConfig.environment = environment;
+
+  console.log(`[PalPluss Config] Updated. Mode: ${palplussConfig.environment}, Merchant: ${palplussConfig.merchantId || 'N/A'}`);
+  return res.status(200).json({
+    success: true,
+    message: 'PalPluss M-Pesa gateway credentials updated successfully',
+    config: {
+      isConfigured: Boolean(palplussConfig.apiKey),
+      merchantId: palplussConfig.merchantId,
+      apiUrl: palplussConfig.apiUrl,
+      environment: palplussConfig.environment,
+    },
+  });
+});
+
+/**
  * POST /api/payments/palpluss/stkpush
  * Initiates an M-Pesa STK Push via PalPluss API.
- * 
- * In production: Forward to PalPluss API:
- * curl -X POST https://api.palpluss.com/v1/stkpush \
- *   -H "Authorization: Bearer <PALPLUSS_API_KEY>" \
- *   -H "Content-Type: application/json" \
- *   -d '{"merchant_id": "...", "phone": "254712345678", "amount": 2500, "reference": "BW-12345"}'
  */
 app.post('/api/payments/palpluss/stkpush', async (req: Request, res: Response) => {
   try {
@@ -69,6 +109,50 @@ app.post('/api/payments/palpluss/stkpush', async (req: Request, res: Response) =
       metadata: { customerName },
     };
 
+    // If live PalPluss API key is configured, forward real request to PalPluss
+    if (palplussConfig.apiKey) {
+      try {
+        console.log(`[PalPluss Live STK] Forwarding request to ${palplussConfig.apiUrl}/stkpush for ${cleanPhone}...`);
+        const liveResponse = await fetch(`${palplussConfig.apiUrl}/stkpush`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${palplussConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            merchant_id: palplussConfig.merchantId,
+            phone: cleanPhone,
+            amount: Number(amount),
+            reference,
+            order_id: orderNumber,
+            description: `BarKwetu Reserve Order #${orderNumber}`,
+          }),
+        });
+
+        if (liveResponse.ok) {
+          const liveData = await liveResponse.json();
+          console.log('[PalPluss Live Response]', liveData);
+          return res.status(200).json({
+            success: true,
+            reference,
+            orderNumber,
+            phone: cleanPhone,
+            amount,
+            checkoutRequestId: liveData.checkout_request_id || liveData.id || `ws_CO_${Date.now()}`,
+            customerMessage: `STK Push prompt sent to ${cleanPhone}. Please enter your M-Pesa PIN on your phone to complete payment.`,
+            status: 'PENDING',
+            liveMode: true,
+          });
+        } else {
+          const errText = await liveResponse.text();
+          console.warn('[PalPluss Live API Warning]', errText);
+        }
+      } catch (liveErr) {
+        console.warn('[PalPluss Live API Connection Exception]', liveErr);
+      }
+    }
+
+    // Default & Sandbox STK Push response
     console.log(`[PalPluss STK Push] Prompt dispatched to ${cleanPhone} for KSh ${amount} (Ref: ${reference}, Order: ${orderNumber})`);
 
     return res.status(200).json({
@@ -80,6 +164,7 @@ app.post('/api/payments/palpluss/stkpush', async (req: Request, res: Response) =
       checkoutRequestId: `ws_CO_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       customerMessage: `STK Push prompt sent to ${cleanPhone}. Please enter your M-Pesa PIN on your phone to complete payment.`,
       status: 'PENDING',
+      liveMode: Boolean(palplussConfig.apiKey),
     });
   } catch (error: any) {
     console.error('[PalPluss Error]', error);

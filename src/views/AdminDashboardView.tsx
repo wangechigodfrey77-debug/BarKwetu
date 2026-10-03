@@ -5,6 +5,7 @@ import { formatKES, formatDateTime, formatKenyanPhone } from '../utils/formatter
 import { FleetTrackerTab } from '../components/admin/FleetTrackerTab';
 import { ReportsTab } from '../components/admin/ReportsTab';
 import { BulkInventoryUploadModal } from '../components/admin/BulkInventoryUploadModal';
+import { PalPlussIntegrationTab } from '../components/admin/PalPlussIntegrationTab';
 import {
   Shield,
   Package,
@@ -38,6 +39,7 @@ import {
   FileSpreadsheet,
   TrendingUp,
   UploadCloud,
+  Smartphone,
 } from 'lucide-react';
 
 const PRESET_SPIRIT_IMAGES = [
@@ -61,6 +63,7 @@ type AdminTab =
   | 'fleet'
   | 'reviews'
   | 'discounts'
+  | 'palpluss'
   | 'admins'
   | 'settings'
   | 'audit';
@@ -732,6 +735,23 @@ export const AdminDashboardView: React.FC = () => {
             )}
 
             <button
+              onClick={() => setActiveTab('palpluss')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'palpluss'
+                  ? 'bg-[#00A859] text-white font-semibold shadow-lg shadow-emerald-950/50'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-[#00A859]" />
+                <span>PalPluss M-Pesa</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold uppercase">
+                Gateway
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('settings')}
               className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-medium transition-all cursor-pointer ${
                 activeTab === 'settings'
@@ -740,7 +760,7 @@ export const AdminDashboardView: React.FC = () => {
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>Settings & PalPluss</span>
+              <span>Settings & Branding</span>
             </button>
 
             <button
@@ -1626,6 +1646,11 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* ================= TAB: PALPLUSS M-PESA GATEWAY ================= */}
+        {activeTab === 'palpluss' && (
+          <PalPlussIntegrationTab />
         )}
 
         {/* ================= TAB: SETTINGS & PALPLUSS ================= */}
