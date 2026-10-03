@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { formatKES, formatKenyanPhone } from '../utils/formatters';
-import { Smartphone, CheckCircle2, XCircle, Loader2, ShieldCheck, RefreshCw, AlertCircle, Copy, Check, ArrowRight, Wallet } from 'lucide-react';
+import { Smartphone, CheckCircle2, XCircle, Loader2, ShieldCheck, RefreshCw, AlertCircle, Copy, Check, ArrowRight, Wallet, Info } from 'lucide-react';
 
 export const PalPlussMpesaModal: React.FC = () => {
   const {
@@ -48,6 +48,7 @@ export const PalPlussMpesaModal: React.FC = () => {
   if (!isPalPlussModalOpen || !currentStkTransaction) return null;
 
   const isSuccess = currentStkTransaction.status === 'SUCCESS';
+  const isFailed = currentStkTransaction.status === 'FAILED';
   const isCancelled = currentStkTransaction.status === 'CANCELLED' || countdown === 0;
 
   const handleResendStk = async () => {
@@ -70,7 +71,6 @@ export const PalPlussMpesaModal: React.FC = () => {
     if (!mpesaReceiptInput.trim()) return;
 
     setIsSubmittingReceipt(true);
-    // Mark payment as verified with the provided M-Pesa receipt code
     await simulatePalPlussAction('SUCCESS');
     setIsSubmittingReceipt(false);
   };
@@ -124,7 +124,7 @@ export const PalPlussMpesaModal: React.FC = () => {
               Finalizing dispatch and redirecting to receipt...
             </p>
           </div>
-        ) : showManualTill || isCancelled ? (
+        ) : showManualTill || isFailed || isCancelled ? (
           <div className="py-2 space-y-4 text-left animate-in fade-in duration-200">
             {/* Header */}
             <div className="text-center">
@@ -135,9 +135,31 @@ export const PalPlussMpesaModal: React.FC = () => {
                 Pay via M-Pesa Till Number
               </h3>
               <p className="text-xs text-zinc-400 mt-1">
-                If the automatic prompt didn't pop up on your phone, pay directly using our Safaricom Buy Goods Till:
+                {isFailed
+                  ? 'The STK push prompt could not be delivered to your phone. Please pay directly via our Buy Goods Till:'
+                  : 'If the automatic prompt didn\'t pop up on your phone, pay directly using our Safaricom Buy Goods Till:'}
               </p>
             </div>
+
+            {/* Error Code Diagnostic Box (If Present) */}
+            {currentStkTransaction.errorDetails && (
+              <div className="p-3 bg-rose-950/40 border border-rose-500/30 rounded-2xl text-xs space-y-1.5 text-zinc-300">
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-rose-400 font-bold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Gateway Error: HTTP {currentStkTransaction.errorDetails.httpStatus}
+                  </span>
+                  {currentStkTransaction.errorDetails.errorCode && (
+                    <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      {currentStkTransaction.errorDetails.errorCode}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  {currentStkTransaction.errorDetails.errorMessage}
+                </p>
+              </div>
+            )}
 
             {/* Till Number Highlight Card */}
             <div className="p-4 bg-[#0d0e12] border-2 border-[#00A859]/40 rounded-2xl space-y-3 relative overflow-hidden">
@@ -226,18 +248,27 @@ export const PalPlussMpesaModal: React.FC = () => {
                 onClick={cancelPalPlussPayment}
                 className="text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
               >
-                Cancel & Return
+                Cancel &amp; Return
               </button>
 
-              <button
-                type="button"
-                disabled={isResending}
-                onClick={handleResendStk}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
-                <span>Retry STK Push</span>
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowManualTill(false)}
+                  className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-300 transition cursor-pointer"
+                >
+                  &larr; View STK Prompt
+                </button>
+                <button
+                  type="button"
+                  disabled={isResending}
+                  onClick={handleResendStk}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00A859] hover:bg-[#008f4c] text-white font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                  <span>Retry Push</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : (

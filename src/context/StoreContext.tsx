@@ -180,6 +180,12 @@ interface StoreContextType {
     orderNumber: string;
     status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
     receipt?: string;
+    errorDetails?: {
+      httpStatus: number | string;
+      errorCode?: string;
+      errorMessage?: string;
+      remediation?: string;
+    };
   } | null;
   initiatePalPlussPayment: (order: Order) => Promise<boolean>;
   initiatePalPlussStkPush: (order: Order) => Promise<boolean>;
@@ -407,6 +413,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     orderNumber: string;
     status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
     receipt?: string;
+    errorDetails?: {
+      httpStatus: number | string;
+      errorCode?: string;
+      errorMessage?: string;
+      remediation?: string;
+    };
   } | null>(null);
 
   // Firestore Real-Time Subscriptions & Auto-Seeding
@@ -1898,20 +1910,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         phone: order.phone,
         amount: order.total,
         orderNumber: order.orderNumber,
-        status: 'PENDING',
+        status: data.status === 'FAILED' ? 'FAILED' : 'PENDING',
+        errorDetails: data.errorDetails,
       });
 
       setIsPalPlussModalOpen(true);
       return true;
-    } catch (err) {
-      console.warn('PalPluss direct API error, falling back to local simulation mode', err);
+    } catch (err: any) {
+      console.warn('PalPluss direct API error', err);
       const reference = `PLP-${Date.now().toString(36).toUpperCase()}`;
       setCurrentStkTransaction({
         reference,
         phone: order.phone,
         amount: order.total,
         orderNumber: order.orderNumber,
-        status: 'PENDING',
+        status: 'FAILED',
+        errorDetails: {
+          httpStatus: 'ERR_NETWORK',
+          errorCode: 'NETWORK_FAIL',
+          errorMessage: err.message || 'Unable to connect to payment server.',
+          remediation: 'Please pay directly via Safaricom Buy Goods Till 1661655.',
+        },
       });
       setIsPalPlussModalOpen(true);
       return true;
