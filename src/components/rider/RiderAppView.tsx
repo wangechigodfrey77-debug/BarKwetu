@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { loadGoogleMaps, BARKWETU_MAP_DARK_THEME } from '../../services/googleMapsLoader';
-import { STORE_HUB_LOCATION, calculateDistanceKm, interpolatePoints } from '../../utils/kenyaLocations';
+import { STORE_HUB_LOCATION, calculateDistanceKm, interpolatePoints, resolveCoordinatesForAddress } from '../../utils/kenyaLocations';
 import { Order, RiderLocation } from '../../types';
 import { formatKES, formatKenyanPhone, formatDateTime } from '../../utils/formatters';
 import {
@@ -88,6 +88,7 @@ export const RiderAppView: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const riderMarkerRef = useRef<google.maps.Marker | null>(null);
+  const customerMarkerRef = useRef<google.maps.Marker | null>(null);
   const simIntervalRef = useRef<any>(null);
 
   const isRiderAuthorized = currentUser && currentUser.role === 'rider';
@@ -118,10 +119,27 @@ export const RiderAppView: React.FC = () => {
     availableOrders[0] ||
     orders[0];
 
-  const destination = selectedOrder?.shippingAddress?.coordinates || {
-    lat: -0.4817,
-    lng: 37.1265,
-  };
+  // Destination directly reflects the customer's pinned GPS coordinates or resolved address
+  const destination =
+    selectedOrder?.shippingAddress?.coordinates ||
+    (selectedOrder?.shippingAddress?.town
+      ? resolveCoordinatesForAddress(
+          selectedOrder.shippingAddress.town,
+          selectedOrder.shippingAddress.exactLocation || ''
+        )
+      : {
+          lat: STORE_HUB_LOCATION.lat + 0.002,
+          lng: STORE_HUB_LOCATION.lng + 0.003,
+        });
+
+  const remainingDist = calculateDistanceKm(
+    currentCoords.lat,
+    currentCoords.lng,
+    destination.lat,
+    destination.lng
+  );
+
+  const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${currentCoords.lat},${currentCoords.lng}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
 
   // Switch default tab if no active orders
   useEffect(() => {
@@ -297,7 +315,7 @@ export const RiderAppView: React.FC = () => {
       });
 
       // Customer Marker
-      new googleObj.maps.Marker({
+      const custMarker = new googleObj.maps.Marker({
         position: destination,
         map,
         title: selectedOrder?.shippingAddress?.fullName || 'Customer',
@@ -311,6 +329,13 @@ export const RiderAppView: React.FC = () => {
           anchor: new googleObj.maps.Point(12, 22),
         },
       });
+      customerMarkerRef.current = custMarker;
+
+      // Fit bounds to show both Rider and Customer Destination
+      const bounds = new googleObj.maps.LatLngBounds();
+      bounds.extend({ lat: currentCoords.lat, lng: currentCoords.lng });
+      bounds.extend(destination);
+      map.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
 
       // Rider Marker
       const riderMarker = new googleObj.maps.Marker({
@@ -342,11 +367,24 @@ export const RiderAppView: React.FC = () => {
     if (riderMarkerRef.current && window.google?.maps) {
       const pos = new window.google.maps.LatLng(currentCoords.lat, currentCoords.lng);
       riderMarkerRef.current.setPosition(pos);
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.panTo(pos);
-      }
     }
   }, [currentCoords]);
+
+  // Update Customer Destination Marker & Map Bounds when customer destination or order changes
+  useEffect(() => {
+    if (customerMarkerRef.current && window.google?.maps) {
+      const destPos = new window.google.maps.LatLng(destination.lat, destination.lng);
+      customerMarkerRef.current.setPosition(destPos);
+      customerMarkerRef.current.setTitle(selectedOrder?.shippingAddress?.fullName || 'Customer Destination');
+
+      if (mapInstanceRef.current) {
+        const bounds = new window.google.maps.LatLngBounds();
+        bounds.extend(new window.google.maps.LatLng(currentCoords.lat, currentCoords.lng));
+        bounds.extend(destPos);
+        mapInstanceRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+      }
+    }
+  }, [destination, selectedOrder]);
 
   // Status transition handlers
   const handleMarkOutForDelivery = (order: Order) => {
@@ -366,12 +404,6 @@ export const RiderAppView: React.FC = () => {
       setCustomerVerified18(false);
     }
   };
-
-  const remainingDist = selectedOrder
-    ? calculateDistanceKm(currentCoords.lat, currentCoords.lng, destination.lat, destination.lng)
-    : 0;
-
-  const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${currentCoords.lat},${currentCoords.lng}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
 
   // ================= RIDER PASSWORD ACCESS GATE =================
   if (!isRiderAuthorized) {
@@ -569,6 +601,68 @@ export const RiderAppView: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Proactive GPS Location Turn-On Prompt for Rider */}
+        {gpsMode !== 'device' && (
+          <div className="bg-gradient-to-r from-amber-950/40 via-[#171924] to-[#121318] border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/40 flex items-center justify-center text-[#d4af37] shrink-0">
+                <Navigation className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <span>Turn On Phone GPS Location</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Recommended
+                  </span>
+                </h4>
+                <p className="text-xs text-zinc-400">
+                  Allow browser/phone location access to broadcast your exact physical motorcycle coordinates to customers.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  showToast('Geolocation is not supported on this device.', 'error');
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const newLoc: RiderLocation = {
+                      lat: pos.coords.latitude,
+                      lng: pos.coords.longitude,
+                      heading: pos.coords.heading || 0,
+                      speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 25,
+                      accuracy: Math.round(pos.coords.accuracy),
+                      updatedAt: new Date().toISOString(),
+                      isLive: true,
+                    };
+                    setCurrentCoords(newLoc);
+                    setGpsMode('device');
+                    setIsBroadcastingGps(true);
+                    if (selectedOrder) {
+                      updateRiderGpsLocation(selectedOrder.id, newLoc);
+                    }
+                    showToast('📱 Smartphone GPS turned ON and broadcasting live!', 'success');
+                  },
+                  (err) => {
+                    if (err.code === 1) {
+                      showToast('Location permission was denied. Please allow location access in your phone settings.', 'error');
+                    } else {
+                      showToast('Could not access phone GPS. Check your device location switch.', 'error');
+                    }
+                  },
+                  { enableHighAccuracy: true }
+                );
+              }}
+              className="px-4 py-2.5 rounded-xl bg-[#d4af37] text-black font-bold text-xs hover:brightness-110 transition flex items-center gap-2 shrink-0 cursor-pointer shadow-md shadow-[#d4af37]/20 w-full sm:w-auto justify-center"
+            >
+              <Radio className="w-3.5 h-3.5 text-black" />
+              <span>Turn On Phone GPS</span>
+            </button>
+          </div>
+        )}
 
         {/* Live GPS Telemetry Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#121318]/60 border border-zinc-800/80 rounded-2xl p-3.5 text-xs">

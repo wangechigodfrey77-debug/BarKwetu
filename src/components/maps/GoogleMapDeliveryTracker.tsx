@@ -26,9 +26,63 @@ export const GoogleMapDeliveryTracker: React.FC<GoogleMapDeliveryTrackerProps> =
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const riderMarkerRef = useRef<google.maps.Marker | null>(null);
+  const customerMarkerRef = useRef<google.maps.Marker | null>(null);
   const polylineRef = useRef<google.maps.Polyline | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [customerLivePos, setCustomerLivePos] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocatingCustomer, setIsLocatingCustomer] = useState(false);
+  const [customerLocStatus, setCustomerLocStatus] = useState<string>('');
+
+  const handleLocateCustomer = () => {
+    if (!navigator.geolocation) {
+      setCustomerLocStatus('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocatingCustomer(true);
+    setCustomerLocStatus('Detecting your location...');
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCustomerLivePos(coords);
+        setIsLocatingCustomer(false);
+        setCustomerLocStatus('Your phone GPS is active');
+
+        if (mapInstanceRef.current && (window as any).google?.maps) {
+          const googleObj = (window as any).google;
+          if (customerMarkerRef.current) {
+            customerMarkerRef.current.setPosition(coords);
+          } else {
+            const custMarker = new googleObj.maps.Marker({
+              position: coords,
+              map: mapInstanceRef.current,
+              title: 'You (Current Location)',
+              icon: {
+                path: googleObj.maps.SymbolPath.CIRCLE,
+                scale: 9,
+                fillColor: '#3b82f6',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 2.5,
+              },
+            });
+            customerMarkerRef.current = custMarker;
+          }
+          mapInstanceRef.current.panTo(coords);
+        }
+      },
+      (err) => {
+        setIsLocatingCustomer(false);
+        if (err.code === 1) {
+          setCustomerLocStatus('Location permission denied in browser.');
+        } else {
+          setCustomerLocStatus('Could not access phone GPS.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Active rider position (default to halfway between hub and destination if not yet broadcasted)
   const currentRiderPos = riderLocation
@@ -201,8 +255,23 @@ export const GoogleMapDeliveryTracker: React.FC<GoogleMapDeliveryTrackerProps> =
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleLocateCustomer}
+            disabled={isLocatingCustomer}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer ${
+              customerLivePos
+                ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+                : 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200'
+            }`}
+            title="Turn on device location to show your current location on map"
+          >
+            <MapPin size={13} className={customerLivePos ? 'text-blue-400' : 'text-[#d4af37]'} />
+            <span>{isLocatingCustomer ? 'Detecting...' : customerLivePos ? 'My GPS Active' : 'My Location'}</span>
+          </button>
+
+          <div className="text-right pl-1">
             <span className="text-xs text-neutral-400">Est. Arrival</span>
             <p className="text-sm font-bold text-amber-400">~{estimatedMinsRemaining} mins</p>
           </div>

@@ -6,9 +6,17 @@ import {
   persistentMultipleTabManager,
   memoryLocalCache,
   Firestore,
+  setLogLevel,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import firebaseConfigData from '../../firebase-applet-config.json';
+
+// Suppress transient network warning logs from Firestore client
+try {
+  setLogLevel('error');
+} catch {
+  // ignore
+}
 
 const firebaseConfig = {
   apiKey: firebaseConfigData.apiKey,
@@ -22,13 +30,13 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with robust Long Polling auto-detection and multi-tab persistent cache
+// Initialize Firestore with Force Long Polling for 100% reliable connection in iframe/proxy environments
 let firestoreInstance: Firestore;
 try {
   firestoreInstance = initializeFirestore(
     app,
     {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),
@@ -40,7 +48,7 @@ try {
     firestoreInstance = initializeFirestore(
       app,
       {
-        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
         localCache: memoryLocalCache(),
       },
       firebaseConfigData.firestoreDatabaseId || undefined

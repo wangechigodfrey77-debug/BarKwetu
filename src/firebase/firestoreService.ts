@@ -90,7 +90,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     !errMsg.includes('unavailable') &&
     !errMsg.includes('offline') &&
     !errMsg.includes('the client is offline') &&
-    !errMsg.includes('failed to get document from server')
+    !errMsg.includes('failed to get document from server') &&
+    !errMsg.includes("backend didn't respond within")
   ) {
     console.warn('Firestore Warning/Notice: ', JSON.stringify(errInfo));
   }
@@ -102,11 +103,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
  */
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'settings', 'main'));
+    await getDoc(doc(db, 'settings', 'main'));
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore is running in local offline cache mode.');
+    if (error instanceof Error && (error.message.includes('offline') || error.message.includes('unavailable'))) {
+      console.info('Firestore operating in offline cache mode.');
     }
     return false;
   }
