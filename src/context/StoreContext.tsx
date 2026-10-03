@@ -182,6 +182,7 @@ interface StoreContextType {
     receipt?: string;
   } | null;
   initiatePalPlussPayment: (order: Order) => Promise<boolean>;
+  initiatePalPlussStkPush: (order: Order) => Promise<boolean>;
   simulatePalPlussAction: (action: 'SUCCESS' | 'CANCELLED') => Promise<void>;
   cancelPalPlussPayment: () => void;
 
@@ -2024,6 +2025,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentStkTransaction(null);
   };
 
+  // Live M-Pesa STK Push Polling for Real Payment Verification
+  useEffect(() => {
+    if (!isPalPlussModalOpen || !currentStkTransaction || currentStkTransaction.status !== 'PENDING') {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/payments/palpluss/status/${currentStkTransaction.reference}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.transaction) {
+            if (data.transaction.status === 'SUCCESS') {
+              clearInterval(pollInterval);
+              simulatePalPlussAction('SUCCESS');
+            } else if (data.transaction.status === 'CANCELLED' || data.transaction.status === 'FAILED') {
+              clearInterval(pollInterval);
+              simulatePalPlussAction('CANCELLED');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('PalPluss status polling warning:', err);
+      }
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
+  }, [isPalPlussModalOpen, currentStkTransaction?.reference, currentStkTransaction?.status]);
+
   // Settings
   const updateSettings = (updates: Partial<SiteSettings>) => {
     setSettings((prev) => {
@@ -2122,6 +2152,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsPalPlussModalOpen,
         currentStkTransaction,
         initiatePalPlussPayment,
+        initiatePalPlussStkPush: initiatePalPlussPayment,
         simulatePalPlussAction,
         cancelPalPlussPayment,
 
