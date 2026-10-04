@@ -1902,8 +1902,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = {
+          success: false,
+          reference: `PLP-${Date.now().toString(36).toUpperCase()}`,
+          status: 'FAILED',
+          errorDetails: {
+            httpStatus: response.status || 500,
+            errorCode: 'INVALID_JSON_RESPONSE',
+            errorMessage: `Gateway returned non-JSON response (${response.status} ${response.statusText}).`,
+            remediation: 'Please pay directly via Safaricom Buy Goods Till 1661655.',
+          },
+        };
+      }
+
       const reference = data.reference || `PLP-${Date.now().toString(36).toUpperCase()}`;
+
+      let sanitizedErrorDetails = undefined;
+      if (data.errorDetails) {
+        sanitizedErrorDetails = {
+          httpStatus: String(data.errorDetails.httpStatus || '500'),
+          errorCode: String(data.errorDetails.errorCode || 'GATEWAY_ERROR'),
+          errorMessage: typeof data.errorDetails.errorMessage === 'object' 
+            ? JSON.stringify(data.errorDetails.errorMessage) 
+            : String(data.errorDetails.errorMessage || 'STK push failed'),
+          remediation: String(data.errorDetails.remediation || 'Please pay via Till 1661655.'),
+        };
+      }
 
       setCurrentStkTransaction({
         reference,
@@ -1911,7 +1940,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         amount: order.total,
         orderNumber: order.orderNumber,
         status: data.status === 'FAILED' ? 'FAILED' : 'PENDING',
-        errorDetails: data.errorDetails,
+        errorDetails: sanitizedErrorDetails,
       });
 
       setIsPalPlussModalOpen(true);
@@ -1928,7 +1957,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         errorDetails: {
           httpStatus: 'ERR_NETWORK',
           errorCode: 'NETWORK_FAIL',
-          errorMessage: err.message || 'Unable to connect to payment server.',
+          errorMessage: typeof err.message === 'string' ? err.message : 'Unable to connect to payment server.',
           remediation: 'Please pay directly via Safaricom Buy Goods Till 1661655.',
         },
       });
